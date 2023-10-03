@@ -1,0 +1,1 @@
+from .module import print_hello
