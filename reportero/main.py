@@ -1,3 +1,4 @@
+import argparse
 import dataclasses
 import datetime
 import enum
@@ -6,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
-import argparse
+
 
 class Extension(enum.Enum):
     h5 = "h5"
@@ -83,7 +84,9 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
     return files[0]
 
 
-def get_scan_statistics(target_file: Path) -> tuple[int, datetime, datetime]:
+def get_scan_statistics(target_file: Path) -> Union[tuple[int, datetime, datetime], None]:
+    if target_file is None:
+        return None
     stats = target_file.stat()
     size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
     log_file = target_file.with_suffix(suffix='.json')
@@ -95,7 +98,9 @@ def get_scan_statistics(target_file: Path) -> tuple[int, datetime, datetime]:
 
 def is_stitched_scan(dataset: Path) -> bool:
     # TODO: Check dirs name, case there is an acquisition inside the previous acquisition
-    return any(elem.is_dir() for elem in (dataset.iterdir()))
+    # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
+    # (by convention, the subscans are named after the dataset name).
+    return any(elem.is_dir() and dataset.name in elem for elem in (dataset.iterdir()))
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
@@ -138,10 +143,12 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with \u2764\ufe0f by Dani')
-    parser.add_argument('-p','--path', help='Path containing all the scans of the beamtime.')
+    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool',
+                                     epilog='Created with \u2764\ufe0f  by Dani')
+    parser.add_argument('-p', '--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
-    parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5, choices=[e.value for e in Extension])
+    parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5.value,
+                        choices=[e.value for e in Extension])
     args = parser.parse_args()
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
