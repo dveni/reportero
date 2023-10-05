@@ -96,21 +96,21 @@ def is_stitched_scan(dataset: Path) -> bool:
     return any(elem.is_dir() for elem in (dataset.iterdir()))
 
 
-def list_scans(path: Path, extension: Extension = Extension.txt, reference_file: Path = None) -> list:
+def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
     dataset_paths = [elem for elem in path.iterdir() if elem.is_dir()]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
         log_file = find_file_by_extension(dataset, Extension.log)
         if is_stitched_scan(dataset):
-            sub_scans = list_scans(path=dataset, extension=extension, reference_file=target_file)
+            sub_scans = list_scans(path=dataset, extension=extension, _reference_file=target_file)
             scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
             scans.append(scan)
 
         else:
             dataset_size, creation_time, finished_time = get_scan_statistics(target_file, log_file=log_file)
-            reference_file = reference_file if reference_file is not None else target_file
-            scan = SimpleScan(path=dataset, reference_file=reference_file, data=target_file, size=dataset_size,
+            _reference_file = _reference_file if _reference_file is not None else target_file
+            scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=dataset_size,
                               created_at=creation_time, finished_at=finished_time)
             scans.append(scan)
 
@@ -137,11 +137,11 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with "\u2764\ufe0f" by Dani')
+    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with \u2764\ufe0f by Dani')
     parser.add_argument('-p','--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
     parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5, choices=Extension)
     args = parser.parse_args()
     path = Path(args.path).resolve()
-    dataset = Dataset(path=path, scans=list_scans(path))
+    dataset = Dataset(path=path, scans=list_scans(path, extension=args.extension))
     print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
