@@ -140,6 +140,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with "\u2764\ufe0f" by Dani')
     parser.add_argument('-p','--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
+    parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5, choices=Extension)
     args = parser.parse_args()
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path))
