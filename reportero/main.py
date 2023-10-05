@@ -100,7 +100,7 @@ def is_stitched_scan(dataset: Path) -> bool:
     # TODO: Check dirs name, case there is an acquisition inside the previous acquisition
     # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
     # (by convention, the subscans are named after the dataset name).
-    return any(elem.is_dir() and dataset.name in elem for elem in (dataset.iterdir()))
+    return any(elem.is_dir() and dataset.name in elem.name for elem in (dataset.iterdir()))
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
