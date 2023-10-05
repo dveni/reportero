@@ -140,7 +140,6 @@ def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
     with open(json_file, "r") as j:
         log = json.load(j)
 
-    breakpoint()
     roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"]["X-ROI Start"],
            log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"])
 
@@ -151,7 +150,7 @@ def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
         effective_pixel_size=log["scientificMetadata"]["detectorParameters"]["Actual pixel size"],
         number_of_projections=log["scientificMetadata"]["scanParameters"]["Number of projections"],
         number_of_darks=log["scientificMetadata"]["scanParameters"]["Number of darks"],
-        number_of_whites=log["scientificMetadata"]["scanParameters"]["Number of whites"], region_of_interest=roi,
+        number_of_whites=log["scientificMetadata"]["scanParameters"]["Number of flats"], region_of_interest=roi,
 
     )
 
