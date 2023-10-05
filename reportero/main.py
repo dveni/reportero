@@ -4,6 +4,7 @@ import datetime
 import enum
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
@@ -84,16 +85,69 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
     return files[0]
 
 
-def get_scan_statistics(target_file: Path) -> Union[tuple[int, datetime, datetime], None]:
+@dataclass
+class ScanStats:
+    size: int
+    created_at: datetime.datetime
+    finished_at: datetime.datetime
+    camera: str
+    microscope: str
+    objective: float
+    scintillator: str
+    exposure_time: int  # [ms]
+    effective_pixel_size: float  # [um]
+    number_of_projections: int
+    number_of_darks: int
+    number_of_whites: int
+    region_of_interest: tuple[float, float]
+
+
+# TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
+def _get_finished_timestamp(log_file: Path) -> Union[datetime.datetime, None]:
+    with open(log_file, "r") as file:
+        text = file.read()
+    # Define the pattern for matching the datetime string
+    pattern = r'scan ended at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+
+    # Search for the pattern in the text
+    match = re.search(pattern, text)
+
+    if match:
+        # Extract the matched datetime string
+        datetime_str = match.group(1)
+        # Convert the string to a datetime object
+        datetime_obj = datetime.datetime.strptime(datetime_str, '%a %b %d %H:%M:%S %Y')
+        return datetime_obj
+    else:
+        # Return None if no match is found
+        return None
+
+
+def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
     if target_file is None:
         return None
     stats = target_file.stat()
-    size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
-    log_file = target_file.with_suffix(suffix='.json')
-    with open(log_file, "r") as l:
-        log = json.load(l)
+    size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(
+        stats.st_ctime)  # TODO: Chekc if the files are created at the beginning or end of the scan
+    json_file = target_file.with_suffix(suffix='.json')
+    log_file = target_file.with_suffix(suffix='.log')
+    finished_at = _get_finished_timestamp(log_file)
+
+    with open(json_file, "r") as j:
+        log = json.load(j)
+    roi = (log["detectorParameters"]["X-ROI End"] - log["detectorParameters"]["X-ROI Start"],
+           log["detectorParameters"]["Y-ROI End"] - log["detectorParameters"]["Y-ROI Start"])
     breakpoint()
-    return size, creation_time, creation_time  # TODO: Implement finished_at
+    return ScanStats(size=size, created_at=creation_time, finished_at=finished_at,
+        camera=log["detectorParameters"]["Camera"], microscope=log["detectorParameters"]["Microscope"],
+        objective=log["detectorParameters"]["Objective"], scintillator=log["detectorParameters"]["Scintillator"],
+        exposure_time=log["detectorParameters"]["Exposure time"],
+        effective_pixel_size=log["detectorParameters"]["Actual pixel size"],
+        number_of_projections=log["scanParameters"]["Number of projections"],
+        number_of_darks=log["scanParameters"]["Number of darks"],
+        number_of_whites=log["scanParameters"]["Number of whites"], region_of_interest=roi,
+
+    )
 
 
 def is_stitched_scan(dataset: Path) -> bool:
