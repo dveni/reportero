@@ -103,21 +103,26 @@ class ScanStats:
 
 
 # TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
-def _get_finished_timestamp(log_file: Path) -> Union[datetime.datetime, None]:
+def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], None]:
     with open(log_file, "r") as file:
         text = file.read()
-    # Define the pattern for matching the datetime string
-    pattern = r'scan ended at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+
+    # Define the patterns for matching the datetime string (thanks ChatGPT)
+    start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+    end_pattern = r'scan ended at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
 
     # Search for the pattern in the text
-    match = re.search(pattern, text)
+    start_match = re.search(start_pattern, text)
+    end_match = re.search(end_pattern, text)
 
-    if match:
+    if start_match and end_match:
         # Extract the matched datetime string
-        datetime_str = match.group(1)
+        start_datetime_str = start_match.group(1)
+        end_datetime_str = end_match.group(1)
         # Convert the string to a datetime object
-        datetime_obj = datetime.datetime.strptime(datetime_str, '%a %b %d %H:%M:%S %Y')
-        return datetime_obj
+        created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
+        finished_at = datetime.datetime.strptime(end_datetime_str, '%a %b %d %H:%M:%S %Y')
+        return created_at, finished_at
     else:
         # Return None if no match is found
         return None
@@ -127,11 +132,10 @@ def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
     if target_file is None:
         return None
     stats = target_file.stat()
-    size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(
-        stats.st_ctime)  # TODO: Chekc if the files are created at the beginning or end of the scan
+    size = stats.st_size
     json_file = target_file.with_suffix(suffix='.json')
     log_file = target_file.with_suffix(suffix='.log')
-    finished_at = _get_finished_timestamp(log_file)
+    created_at, finished_at = _get_timestamps(log_file)
 
     with open(json_file, "r") as j:
         log = json.load(j)
@@ -140,7 +144,7 @@ def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
     roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"]["X-ROI Start"],
            log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"])
 
-    return ScanStats(size=size, created_at=creation_time, finished_at=finished_at,
+    return ScanStats(size=size, created_at=created_at, finished_at=finished_at,
         camera=log["scientificMetadata"]["detectorParameters"]["Camera"], microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
         objective=log["scientificMetadata"]["detectorParameters"]["Objective"], scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
         exposure_time=log["scientificMetadata"]["detectorParameters"]["Exposure time"],
