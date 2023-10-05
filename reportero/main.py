@@ -10,6 +10,7 @@ from pathlib import Path
 class Extension(enum.Enum):
     h5 = ".h5"
     txt = ".txt"
+    log = ".json"
 
 
 @dataclass
@@ -18,12 +19,12 @@ class Scan:
     reference_file: Path
     created_at: datetime.datetime
     finished_at: datetime.datetime
+    size: int
 
 
 @dataclass
 class SimpleScan(Scan):
     data: Path
-    size: int
 
 
 @dataclass
@@ -37,15 +38,29 @@ class StitchedScan(Scan):
     def __post_init__(self):
         self.number_of_subscans = len(self.data)
         self.size = sum([elem.size for elem in self.data])
-        timestamps = sorted([elem.created_at for elem in self.data])
-        self.created_at = timestamps[0]  # First subscan sets the creation timestamp of the stitched scan
-        self.finished_at = timestamps[-1]  # Last subscan sets the finish timestamp of the stitched scan
+        self.created_at = [elem.created_at for elem in self.data][
+            0]  # First subscan sets the creation timestamp of the stitched scan
+        self.finished_at = [elem.finished_at for elem in self.data][
+            -1]  # Last subscan sets the finish timestamp of the stitched scan
 
 
 @dataclass
 class Dataset:
     path: Path
-    scan: Scan
+    scans: list[Scan]
+    number_of_scans: int = field(init=False)
+    size: int = field(init=False)
+    scan_time: datetime.timedelta = field(init=False)
+    efficiency: float = field(init=False)
+
+    def __post_init__(self):
+        self.number_of_scans = len(self.scans)
+        self.size = sum([scan.size for scan in self.scans])
+        scan_times = [scan.finished_at - scan.created_at for scan in self.scans]
+        self.scan_time = sum(scan_times, datetime.timedelta())
+        self.efficiency = self.scan_time / (self.scans[-1].finished_at - self.scans[0].created_at)
+        print((self.scans[-1].finished_at - self.scans[0].created_at).total_seconds(), self.scans[-1].finished_at,
+              self.scans[0].created_at)
 
 
 def sizeof_fmt(num, suffix="B"):
@@ -67,10 +82,13 @@ def find_file_by_extension(path: Path, extension: Extension) -> Path | None:
     return files[0]
 
 
-def get_file_statistics(file: Path) -> tuple[int, datetime]:
-    stats = file.stat()
+def get_scan_statistics(target_file: Path, log_file: Path) -> tuple[int, datetime, datetime]:
+    stats = target_file.stat()
     size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
-    return size, creation_time
+    with open(log_file, "r") as l:
+        log = json.load(l)
+
+    return size, creation_time, creation_time  # TODO: Implement finished_at
 
 
 def is_stitched_scan(dataset: Path) -> bool:
@@ -78,39 +96,30 @@ def is_stitched_scan(dataset: Path) -> bool:
     return any(elem.is_dir() for elem in (dataset.iterdir()))
 
 
-def list_datasets(path: Path, extension: Extension = Extension.txt, reference_file: Path = None) -> list:
-    # TODO: Scans should be returned ordered by creation time
+def list_scans(path: Path, extension: Extension = Extension.txt, reference_file: Path = None) -> list:
     dataset_paths = [elem for elem in path.iterdir() if elem.is_dir()]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
+        log_file = find_file_by_extension(dataset, Extension.log)
         if is_stitched_scan(dataset):
-            sub_scans = list_datasets(path=dataset, extension=extension, reference_file=target_file)
+            sub_scans = list_scans(path=dataset, extension=extension, reference_file=target_file)
             scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
             scans.append(scan)
 
         else:
-            dataset_size, creation_time = get_file_statistics(target_file)
+            dataset_size, creation_time, finished_time = get_scan_statistics(target_file, log_file=log_file)
             reference_file = reference_file if reference_file is not None else target_file
             scan = SimpleScan(path=dataset, reference_file=reference_file, data=target_file, size=dataset_size,
-                              created_at=creation_time, finished_at=creation_time)  # TODO: Implement finished_at
+                              created_at=creation_time, finished_at=finished_time)
             scans.append(scan)
 
+    # Sort by creation date
+    scans = sorted(scans, key=lambda scan: scan.created_at)
     return scans
 
 
 def validate_result():
-    pass
-
-
-def compute_beamline_statistics(datasets: dict):
-    # TODO: Total scan time
-    # TODO: Beamtime throughput
-    # TODO: Total size
-    # TODO: COmplete Dataset size
-    total_beamtime_size = 0
-    # for dataset_path, values in datasets.items():
-    #     if values["sti"]
     pass
 
 
@@ -120,6 +129,8 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return dataclasses.asdict(o)
         elif isinstance(o, datetime.datetime):
             return o.isoformat()
+        elif isinstance(o, datetime.timedelta):
+            return o.total_seconds()
         elif isinstance(o, Path):
             return str(o)
         return super().default(o)
@@ -127,4 +138,5 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 if __name__ == "__main__":
     path = Path("../tests/good_beamtime").resolve()
-    print(json.dumps(list_datasets(path), cls=EnhancedJSONEncoder, indent=4))
+    dataset = Dataset(path=path, scans=list_scans(path))
+    print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))

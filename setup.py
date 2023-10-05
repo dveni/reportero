@@ -53,7 +53,7 @@ setup(
     version=about['__version__'],
     author=AUTHOR,
     author_email=EMAIL,
-    packages=['package_name'],
+    packages=['reportero'],
     scripts=['scripts/example_script.py'],
     url=URL,
     license='LICENSE',

@@ -1,7 +1,7 @@
-import package_name
+import reportero
 
 def main():
-    package_name.print_hello()
+    reportero.print_hello()
 
 if __name__ == "__main__":
     main()
