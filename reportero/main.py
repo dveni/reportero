@@ -83,11 +83,13 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
     return files[0]
 
 
-def get_scan_statistics(target_file: Path, log_file: Path) -> tuple[int, datetime, datetime]:
+def get_scan_statistics(target_file: Path) -> tuple[int, datetime, datetime]:
     stats = target_file.stat()
     size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
+    log_file = target_file.with_suffix(suffix='json')
     with open(log_file, "r") as l:
         log = json.load(l)
+    breakpoint()
     return size, creation_time, creation_time  # TODO: Implement finished_at
 
 
@@ -97,18 +99,17 @@ def is_stitched_scan(dataset: Path) -> bool:
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
-    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir()]
+    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and 'logs' not in elem]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
-        log_file = find_file_by_extension(dataset, Extension.log)
         if is_stitched_scan(dataset):
             sub_scans = list_scans(path=dataset, extension=extension, _reference_file=target_file)
             scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
             scans.append(scan)
 
         else:
-            dataset_size, creation_time, finished_time = get_scan_statistics(target_file, log_file=log_file)
+            dataset_size, creation_time, finished_time = get_scan_statistics(target_file)
             _reference_file = _reference_file if _reference_file is not None else target_file
             scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=dataset_size,
                               created_at=creation_time, finished_at=finished_time)
