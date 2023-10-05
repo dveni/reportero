@@ -5,6 +5,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Union
 
 
 class Extension(enum.Enum):
@@ -71,7 +72,7 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f}Yi{suffix}"
 
 
-def find_file_by_extension(path: Path, extension: Extension) -> Path | None:
+def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
     files = [elem for elem in path.iterdir() if extension.value == elem.suffix]
     if len(files) > 1:
         logging.warning(
@@ -87,7 +88,6 @@ def get_scan_statistics(target_file: Path, log_file: Path) -> tuple[int, datetim
     size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
     with open(log_file, "r") as l:
         log = json.load(l)
-
     return size, creation_time, creation_time  # TODO: Implement finished_at
 
 

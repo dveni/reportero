@@ -1,5 +1,5 @@
 # Reportero
-## TOMCAT:cat2: Beamtime report generator
+> TOMCAT:cat2: Beamtime report generator
 
 Generate reports for your beamtimes from the terminal, fast.
 
