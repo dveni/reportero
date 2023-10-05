@@ -9,9 +9,9 @@ from typing import Union
 import argparse
 
 class Extension(enum.Enum):
-    h5 = ".h5"
-    txt = ".txt"
-    log = ".json"
+    h5 = "h5"
+    txt = "txt"
+    log = "json"
 
 
 @dataclass
@@ -73,7 +73,7 @@ def sizeof_fmt(num, suffix="B"):
 
 
 def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
-    files = [elem for elem in path.iterdir() if extension.value == elem.suffix]
+    files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
     if len(files) > 1:
         logging.warning(
             f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
@@ -86,7 +86,7 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
 def get_scan_statistics(target_file: Path) -> tuple[int, datetime, datetime]:
     stats = target_file.stat()
     size, creation_time = stats.st_size, datetime.datetime.fromtimestamp(stats.st_ctime)
-    log_file = target_file.with_suffix(suffix='json')
+    log_file = target_file.with_suffix(suffix='.json')
     with open(log_file, "r") as l:
         log = json.load(l)
     breakpoint()
@@ -99,7 +99,7 @@ def is_stitched_scan(dataset: Path) -> bool:
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
-    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and 'logs' not in elem]
+    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not elem.match("logs")]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with \u2764\ufe0f by Dani')
     parser.add_argument('-p','--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
-    parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5, choices=Extension)
+    parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5, choices=[e.value for e in Extension])
     args = parser.parse_args()
     path = Path(args.path).resolve()
-    dataset = Dataset(path=path, scans=list_scans(path, extension=args.extension))
+    dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
     print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
