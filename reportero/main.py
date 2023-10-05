@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
-
+import argparse
 
 class Extension(enum.Enum):
     h5 = ".h5"
@@ -137,6 +137,10 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 if __name__ == "__main__":
-    path = Path("../tests/good_beamtime").resolve()
+    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool', epilog='Created with "\u2764\ufe0f" by Dani')
+    parser.add_argument('-p','--path', help='Path containing all the scans of the beamtime.')
+    parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
+    args = parser.parse_args()
+    path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path))
     print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
