@@ -110,16 +110,19 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
 
     # Define the patterns for matching the datetime string (thanks ChatGPT)
     start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
-    end_pattern = re.compile(r'(SCAN\s*FINISHED\s+at\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})|scan\s*ended\s+at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4}))', re.IGNORECASE)
+    # This needs to be duplicated to differentiate when selecting group of the match, as I need to select a different group depending on the pattern...
+    end_pattern1 = re.compile(r'SCAN\s*FINISHED\s+at\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})', re.IGNORECASE) #Ugh
+    end_pattern2 = re.compile(r'scan\s*ended\s+at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})', re.IGNORECASE) #Ugh
 
     # Search for the pattern in the text
     start_match = re.search(start_pattern, text)
-    end_match = re.search(end_pattern, text)
+    end_match1 = re.search(end_pattern1, text)
+    end_match2 = re.search(end_pattern2, text)
 
-    if start_match and end_match:
+    if start_match and (end_match1 or end_match2):
         # Extract the matched datetime string
         start_datetime_str = start_match.group(1)
-        end_datetime_str = end_match.group(2)
+        end_datetime_str = end_match1.group(1) if end_match1.group(1) is not None else end_match2.group(2)
         # Convert the string to a datetime object
         created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
         finished_at = datetime.datetime.strptime(end_datetime_str, '%a %b %d %H:%M:%S %Y')
