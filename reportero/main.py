@@ -122,7 +122,7 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
     if start_match and (end_match1 or end_match2):
         # Extract the matched datetime string
         start_datetime_str = start_match.group(1)
-        end_datetime_str = end_match1.group(1) if end_match1 is not None else end_match2.group(2)
+        end_datetime_str = end_match1.group(2) if end_match1 is not None else end_match2.group(1)
         # Convert the string to a datetime object
         created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
         finished_at = datetime.datetime.strptime(end_datetime_str, '%a %b %d %H:%M:%S %Y')
