@@ -110,15 +110,17 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
 
     # Define the patterns for matching the datetime string (thanks ChatGPT)
     start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
-    end_pattern = r'scan ended at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+    end_substrings = ['scan ended', 'SCAN FINISHED']
+    end_patterns = [fr'{substring} at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})' for substring in end_substrings]
 
     # Search for the pattern in the text
     start_match = re.search(start_pattern, text)
-    end_match = re.search(end_pattern, text)
+    end_matches = [re.search(end_pattern, text) for end_pattern in end_patterns]
 
-    if start_match and end_match:
+    if start_match and any(end_matches):
         # Extract the matched datetime string
         start_datetime_str = start_match.group(1)
+        end_match = [em for em in end_matches if em is not None][0] # Only get the first valid match
         end_datetime_str = end_match.group(1)
         # Convert the string to a datetime object
         created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
