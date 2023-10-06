@@ -95,9 +95,9 @@ class Dataset:
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
-            return num, suffix  # f"{num:3.1f}{unit}{suffix}"
+            return num, unit+suffix  # f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
-    return num, suffix  # f"{num:.1f}Yi{suffix}"
+    return num, unit+suffix  # f"{num:.1f}Yi{suffix}"
 
 
 def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
