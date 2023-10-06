@@ -110,7 +110,7 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
 
     # Define the patterns for matching the datetime string (thanks ChatGPT)
     start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
-    end_pattern = r'(scan ended|SCAN FINISHED) at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})' # Ugh...
+    end_pattern = re.compile(r'(scan ended|SCAN FINISHED) at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})') # Ugh...
 
     # Search for the pattern in the text
     start_match = re.search(start_pattern, text)
