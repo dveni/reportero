@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
 
-IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp"]
+IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
 
 
 class Extension(enum.Enum):
