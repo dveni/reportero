@@ -212,7 +212,7 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
             scans.append(scan)
 
     # Sort by creation date
-    scans = sorted(scans, key=lambda scan: scan.created_at)
+    scans = sorted(scans, key=lambda scan: scan.created_at) if scan.created_at is not None else scans
     return scans
 
 
