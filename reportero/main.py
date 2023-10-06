@@ -13,7 +13,8 @@ IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp"]
 class Extension(enum.Enum):
     h5 = "h5"
     txt = "txt"
-    log = "json"
+    log = "log"
+    json = "json"
 
 
 @dataclass
@@ -135,7 +136,13 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
     log_file = target_file.with_suffix(suffix='.log')
     #TODO: FIx for dual_gf_edge4_cam2/m_G_double_s10_
     if not log_file.exists():
+        logging.warning(f"Log file {log_file} was not found! Looking for log in {target_file.parent}...")
         log_file = find_file_by_extension(target_file.parent, Extension.log)
+        logging.warning(f"Using logfile at {log_file}")
+    if not json_file.exists():
+        logging.warning(f"Json file {json_file} was not found! Looking for json in {target_file.parent}...")
+        json_file = find_file_by_extension(target_file.parent, Extension.json)
+        logging.warning(f"Using json file at {json_file}")
     created_at, finished_at = _get_timestamps(log_file)
 
     with open(json_file, "r") as j:
