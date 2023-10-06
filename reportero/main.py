@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
 
-
+IGNORE_FOLDERS = ["logs", "sin", "viewrec"]
 class Extension(enum.Enum):
     h5 = "h5"
     txt = "txt"
@@ -101,7 +101,7 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
 
 
 # TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
-def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None,None]]:
+def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
     with open(log_file, "r") as file:
         text = file.read()
 
@@ -138,12 +138,16 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
     with open(json_file, "r") as j:
         log = json.load(j)
 
-    roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"]["X-ROI Start"],
-           log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"])
+    roi = (
+    log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+        "X-ROI Start"],
+    log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+        "Y-ROI Start"])
 
-    return created_at, finished_at, size, ScanStats(
-        camera=log["scientificMetadata"]["detectorParameters"]["Camera"], microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
-        objective=log["scientificMetadata"]["detectorParameters"]["Objective"], scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
+    return created_at, finished_at, size, ScanStats(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
+        microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
+        objective=log["scientificMetadata"]["detectorParameters"]["Objective"],
+        scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
         exposure_time=log["scientificMetadata"]["detectorParameters"]["Exposure time"],
         effective_pixel_size=log["scientificMetadata"]["detectorParameters"]["Actual pixel size"],
         number_of_projections=log["scientificMetadata"]["scanParameters"]["Number of projections"],
@@ -154,10 +158,12 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
 
 
 def is_stitched_scan(dataset: Path) -> bool:
-    # TODO: Check dirs name, case there is an acquisition inside the previous acquisition
+    # TODO: Check dirs name, case there is an acquisition inside the previous acquisition: dataset.name in elem.name
+    # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
     # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
     # (by convention, the subscans are named after the dataset name).
-    return any(elem.is_dir() and dataset.name in elem.name for elem in (dataset.iterdir()))
+    #TODO: The name check does not work for the manual stitched scan...
+    return any(elem.is_dir() and not any(ignored in elem for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
@@ -173,7 +179,6 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
         else:
             created_at, finished_at, size, scan_stats = get_scan_statistics(target_file)
             _reference_file = _reference_file if _reference_file is not None else target_file
-            # TODO: Rework to use the scan stats object :'(
             scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
                               created_at=created_at, finished_at=finished_at, stats=scan_stats)
             scans.append(scan)
