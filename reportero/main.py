@@ -17,6 +17,20 @@ class Extension(enum.Enum):
 
 
 @dataclass
+class ScanStats:
+    camera: str
+    microscope: str
+    objective: float
+    scintillator: str
+    exposure_time: int  # [ms]
+    effective_pixel_size: float  # [um]
+    number_of_projections: int
+    number_of_darks: int
+    number_of_whites: int
+    region_of_interest: tuple[float, float]
+
+
+@dataclass
 class Scan:
     path: Path
     reference_file: Path
@@ -28,6 +42,7 @@ class Scan:
 @dataclass
 class SimpleScan(Scan):
     data: Path
+    stats: ScanStats
 
 
 @dataclass
@@ -85,25 +100,8 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
     return files[0]
 
 
-@dataclass
-class ScanStats:
-    size: int
-    created_at: datetime.datetime
-    finished_at: datetime.datetime
-    camera: str
-    microscope: str
-    objective: float
-    scintillator: str
-    exposure_time: int  # [ms]
-    effective_pixel_size: float  # [um]
-    number_of_projections: int
-    number_of_darks: int
-    number_of_whites: int
-    region_of_interest: tuple[float, float]
-
-
 # TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
-def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], None]:
+def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None,None]]:
     with open(log_file, "r") as file:
         text = file.read()
 
@@ -125,10 +123,10 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
         return created_at, finished_at
     else:
         # Return None if no match is found
-        return None
+        return None, None
 
 
-def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
+def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, datetime.datetime, int, ScanStats], None]:
     if target_file is None:
         return None
     stats = target_file.stat()
@@ -143,7 +141,7 @@ def get_scan_statistics(target_file: Path) -> Union[ScanStats, None]:
     roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"]["X-ROI Start"],
            log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"])
 
-    return ScanStats(size=size, created_at=created_at, finished_at=finished_at,
+    return created_at, finished_at, size, ScanStats(
         camera=log["scientificMetadata"]["detectorParameters"]["Camera"], microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
         objective=log["scientificMetadata"]["detectorParameters"]["Objective"], scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
         exposure_time=log["scientificMetadata"]["detectorParameters"]["Exposure time"],
@@ -173,10 +171,11 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
             scans.append(scan)
 
         else:
-            dataset_size, creation_time, finished_time = get_scan_statistics(target_file)
+            created_at, finished_at, size, scan_stats = get_scan_statistics(target_file)
             _reference_file = _reference_file if _reference_file is not None else target_file
-            scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=dataset_size,
-                              created_at=creation_time, finished_at=finished_time)
+            # TODO: Rework to use the scan stats object :'(
+            scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
+                              created_at=created_at, finished_at=finished_at, stats=scan_stats)
             scans.append(scan)
 
     # Sort by creation date
