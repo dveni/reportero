@@ -167,7 +167,7 @@ def is_stitched_scan(dataset: Path) -> bool:
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
-    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not elem.match("logs")]
+    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not any(elem.match(ignored) for ignored in IGNORE_FOLDERS)]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
