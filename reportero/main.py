@@ -163,7 +163,7 @@ def is_stitched_scan(dataset: Path) -> bool:
     # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
     # (by convention, the subscans are named after the dataset name).
     #TODO: The name check does not work for the manual stitched scan...
-    return any(elem.is_dir() and not any(ignored in elem for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
+    return any(elem.is_dir() and not any(ignored in elem.name for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
