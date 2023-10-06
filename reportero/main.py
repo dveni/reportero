@@ -133,6 +133,9 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
     size = stats.st_size
     json_file = target_file.with_suffix(suffix='.json')
     log_file = target_file.with_suffix(suffix='.log')
+    #TODO: FIx for dual_gf_edge4_cam2/m_G_double_s10_
+    if not log_file.exists():
+        log_file = find_file_by_extension(target_file.parent, Extension.log)
     created_at, finished_at = _get_timestamps(log_file)
 
     with open(json_file, "r") as j:
