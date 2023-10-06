@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Union
 
 IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp"]
+
+
 class Extension(enum.Enum):
     h5 = "h5"
     txt = "txt"
@@ -134,7 +136,7 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
     size = stats.st_size
     json_file = target_file.with_suffix(suffix='.json')
     log_file = target_file.with_suffix(suffix='.log')
-    #TODO: FIx for dual_gf_edge4_cam2/m_G_double_s10_
+    # TODO: FIx for dual_gf_edge4_cam2/m_G_double_s10_
     if not log_file.exists():
         logging.warning(f"Log file {log_file} was not found! Looking for log in {target_file.parent}...")
         log_file = find_file_by_extension(target_file.parent, Extension.log)
@@ -143,28 +145,40 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
         logging.warning(f"Json file {json_file} was not found! Looking for json in {target_file.parent}...")
         json_file = find_file_by_extension(target_file.parent, Extension.json)
         logging.warning(f"Using json file at {json_file}")
-    created_at, finished_at = _get_timestamps(log_file)
 
+    if log_file is None or json_file is None:
+        # This may occur when a scan was cancelled
+        return None
+
+    created_at, finished_at = _get_timestamps(log_file)
     with open(json_file, "r") as j:
         log = json.load(j)
 
     roi = (
-    log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"][
-        "X-ROI Start"],
-    log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"][
-        "Y-ROI Start"])
+        log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+            "X-ROI Start"],
+        log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+            "Y-ROI Start"])
 
     return created_at, finished_at, size, ScanStats(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
-        microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
-        objective=log["scientificMetadata"]["detectorParameters"]["Objective"],
-        scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
-        exposure_time=log["scientificMetadata"]["detectorParameters"]["Exposure time"],
-        effective_pixel_size=log["scientificMetadata"]["detectorParameters"]["Actual pixel size"],
-        number_of_projections=log["scientificMetadata"]["scanParameters"]["Number of projections"],
-        number_of_darks=log["scientificMetadata"]["scanParameters"]["Number of darks"],
-        number_of_whites=log["scientificMetadata"]["scanParameters"]["Number of flats"], region_of_interest=roi,
+                                                    microscope=log["scientificMetadata"]["detectorParameters"][
+                                                        "Microscope"],
+                                                    objective=log["scientificMetadata"]["detectorParameters"][
+                                                        "Objective"],
+                                                    scintillator=log["scientificMetadata"]["detectorParameters"][
+                                                        "Scintillator"],
+                                                    exposure_time=log["scientificMetadata"]["detectorParameters"][
+                                                        "Exposure time"], effective_pixel_size=
+                                                    log["scientificMetadata"]["detectorParameters"][
+                                                        "Actual pixel size"],
+                                                    number_of_projections=log["scientificMetadata"]["scanParameters"][
+                                                        "Number of projections"],
+                                                    number_of_darks=log["scientificMetadata"]["scanParameters"][
+                                                        "Number of darks"],
+                                                    number_of_whites=log["scientificMetadata"]["scanParameters"][
+                                                        "Number of flats"], region_of_interest=roi,
 
-    )
+                                                    )
 
 
 def is_stitched_scan(dataset: Path) -> bool:
@@ -172,12 +186,14 @@ def is_stitched_scan(dataset: Path) -> bool:
     # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
     # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
     # (by convention, the subscans are named after the dataset name).
-    #TODO: The name check does not work for the manual stitched scan...
-    return any(elem.is_dir() and not any(ignored in elem.name for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
+    # TODO: The name check does not work for the manual stitched scan...
+    return any(
+        elem.is_dir() and not any(ignored in elem.name for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
-    dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not any(elem.match(f"*{ignored}*") for ignored in IGNORE_FOLDERS)]
+    dataset_paths = [elem for elem in path.iterdir() if
+                     elem.is_dir() and not any(elem.match(f"*{ignored}*") for ignored in IGNORE_FOLDERS)]
     scans = []
     for dataset in sorted(dataset_paths):
         target_file = find_file_by_extension(dataset, extension)
@@ -187,7 +203,9 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
             scans.append(scan)
 
         else:
-            created_at, finished_at, size, scan_stats = get_scan_statistics(target_file)
+            stats = get_scan_statistics(target_file)
+            created_at, finished_at, size, scan_stats = stats if stats is not None else (
+                                                                                        None,) * 4  # TODO: Find a better solution for this
             _reference_file = _reference_file if _reference_file is not None else target_file
             scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
                               created_at=created_at, finished_at=finished_at, stats=scan_stats)
