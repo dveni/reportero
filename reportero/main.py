@@ -147,6 +147,8 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
     if not json_file.exists():
         logging.warning(f"Json file {json_file} was not found! Looking for json in {target_file.parent}...")
         json_file = find_file_by_extension(target_file.parent, Extension.json)
+        if "config" in json_file.name:
+            return None # AVoid fallback to config file
         logging.warning(f"Using json file at {json_file}")
 
     if log_file is None or json_file is None:
