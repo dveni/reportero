@@ -204,15 +204,16 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
 
         else:
             stats = get_scan_statistics(target_file)
-            created_at, finished_at, size, scan_stats = stats if stats is not None else (
-                                                                                        None,) * 4  # TODO: Find a better solution for this
+            if stats is None:
+                continue
+            created_at, finished_at, size, scan_stats = stats
             _reference_file = _reference_file if _reference_file is not None else target_file
             scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
                               created_at=created_at, finished_at=finished_at, stats=scan_stats)
             scans.append(scan)
 
     # Sort by creation date
-    scans = sorted(scans, key=lambda scan: scan.created_at) if scan.created_at is not None else scans
+    scans = sorted(scans, key=lambda scan: scan.created_at)
     return scans
 
 
