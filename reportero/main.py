@@ -6,7 +6,6 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from operator import attrgetter
 from pathlib import Path
 from typing import Union
 
@@ -43,6 +42,7 @@ class Scan:
     size: int
     info: ScanInfo
 
+
 @dataclass
 class SimpleScan(Scan):
     data: Path
@@ -64,10 +64,7 @@ class StitchedScan(Scan):
             0]  # First subscan sets the creation timestamp of the stitched scan
         self.finished_at = [elem.finished_at for elem in self.data][
             -1]  # Last subscan sets the finish timestamp of the stitched scan
-        self.info = self.data[0].info #The info of the stitched scan should be the same as in every subscan
-
-
-
+        self.info = self.data[0].info  # The info of the stitched scan should be the same as in every subscan
 
 
 @dataclass
@@ -91,9 +88,9 @@ class Dataset:
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
-            return num, unit+suffix  # f"{num:3.1f}{unit}{suffix}"
+            return num, unit + suffix  # f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
-    return num, unit+suffix  # f"{num:.1f}Yi{suffix}"
+    return num, unit + suffix  # f"{num:.1f}Yi{suffix}"
 
 
 def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
@@ -171,21 +168,21 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
 
     return created_at, finished_at, size, ScanInfo(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
                                                    microscope=log["scientificMetadata"]["detectorParameters"][
-                                                        "Microscope"],
+                                                       "Microscope"],
                                                    objective=log["scientificMetadata"]["detectorParameters"][
-                                                        "Objective"],
+                                                       "Objective"],
                                                    scintillator=log["scientificMetadata"]["detectorParameters"][
-                                                        "Scintillator"],
+                                                       "Scintillator"],
                                                    exposure_time=log["scientificMetadata"]["detectorParameters"][
-                                                        "Exposure time"], effective_pixel_size=
-                                                    log["scientificMetadata"]["detectorParameters"][
-                                                        "Actual pixel size"],
+                                                       "Exposure time"],
+                                                   effective_pixel_size=log["scientificMetadata"]["detectorParameters"][
+                                                       "Actual pixel size"],
                                                    number_of_projections=log["scientificMetadata"]["scanParameters"][
-                                                        "Number of projections"],
+                                                       "Number of projections"],
                                                    number_of_darks=log["scientificMetadata"]["scanParameters"][
-                                                        "Number of darks"],
+                                                       "Number of darks"],
                                                    number_of_whites=log["scientificMetadata"]["scanParameters"][
-                                                        "Number of flats"], region_of_interest=roi,
+                                                       "Number of flats"], region_of_interest=roi,
 
                                                    )
 
@@ -234,12 +231,14 @@ def validate_result():
 
 class EnhancedJSONEncoder(json.JSONEncoder):
 
+    def dict_factory(data_class_instance):
+        filtered_fields = [field.name for field in dataclasses.fields(data_class_instance) if not field.repr]
+        return {name: getattr(data_class_instance, name) for name in filtered_fields}
+
     def default(self, o):
         if dataclasses.is_dataclass(o):
-            d = dataclasses.asdict(o)
-            # TODO: Maybe not the most efficient way, but quite readable IMO
-            not_repr_fields = [field.name for field in dataclasses.fields(o) if not field.repr]
-            return {k: v for k,v in d.items() if k not in not_repr_fields}
+            return dataclasses.asdict(o, dict_factory=self.dict_factory)
+            
         elif isinstance(o, datetime.datetime):
             return o.isoformat()
         elif isinstance(o, datetime.timedelta):
@@ -259,9 +258,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
-    print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
-    # cls_annotations = Dataset.__dict__.get('__annotations__', {})
-    # print(dataset)
-    # print(dataset.__str__())
-    # print(dataset.__repr__())
-
+    print(json.dumps(dataset, cls=EnhancedJSONEncoder,
+                     indent=4))  # cls_annotations = Dataset.__dict__.get('__annotations__', {})  # print(dataset)  # print(dataset.__str__())  # print(dataset.__repr__())
