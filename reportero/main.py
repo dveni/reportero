@@ -242,7 +242,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
             # TODO: hardcoded, simplest solution at this point
-            d["scans"] = [{k: v} for scan in d["scans"] for k, v in scan.items() if k not in ["data"]]
+            d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"] ]
             return d
 
         elif isinstance(o, datetime.datetime):
