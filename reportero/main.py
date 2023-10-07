@@ -243,7 +243,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
             # TODO: hardcoded, simplest solution at this point
-            d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"] ]
+            d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"]]
             return d
 
         elif isinstance(o, datetime.datetime):
@@ -255,18 +255,26 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def write_csv(dataset: Dataset, csv_file_path):
+def write_csv(dataset: Dataset, csv_file_path: str):
     # Write data to the CSV file
     with open(csv_file_path, 'w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-
+        columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time', 'effective_pixel_size',
+                   'projections', 'number_of_subscans']
         # Write header
-        header = [field.name for field in dataclasses.fields(dataset.scans[0])]
-        csv_writer.writerow(header)
+        csv_writer.writerow(columns)
 
         # Write data
         for data_instance in dataset.scans:
-            csv_writer.writerow([getattr(data_instance, field.name) for field in dataclasses.fields(data_instance)])
+            name = Path(getattr(data_instance, 'path')).name
+            created_at = getattr(data_instance, 'created_at')
+            size = sizeof_fmt(getattr(data_instance, 'size'))
+            info: ScanInfo = getattr(data_instance, 'info')
+            number_of_scans = getattr(data_instance, 'info', 1)
+            csv_writer.writerow(
+                [name, created_at, size, info.camera, info.microscope, info.exposure_time, info.effective_pixel_size,
+                 info.number_of_projections, number_of_scans])
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool',
@@ -278,6 +286,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
-    print(json.dumps(dataset, cls=EnhancedJSONEncoder,
-                     indent=4))
+    print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
     write_csv(dataset, "test.csv")
