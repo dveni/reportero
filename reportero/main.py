@@ -1,4 +1,5 @@
 import argparse
+import csv
 import dataclasses
 import datetime
 import enum
@@ -254,6 +255,19 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
+def write_csv(dataset: Dataset, csv_file_path):
+    # Write data to the CSV file
+    with open(csv_file_path, 'w', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file)
+
+        # Write header
+        header = [field.name for field in dataclasses.fields(dataset)]
+        csv_writer.writerow(header)
+
+        # Write data
+        for data_instance in dataset.scans:
+            csv_writer.writerow([getattr(data_instance, field.name) for field in dataclasses.fields(dataset)])
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool',
                                      epilog='Created with \u2764\ufe0f  by Dani')
@@ -265,4 +279,5 @@ if __name__ == "__main__":
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
     print(json.dumps(dataset, cls=EnhancedJSONEncoder,
-                     indent=4))  # cls_annotations = Dataset.__dict__.get('__annotations__', {})  # print(dataset)  # print(dataset.__str__())  # print(dataset.__repr__())
+                     indent=4))
+    write_csv(dataset, "test.csv")
