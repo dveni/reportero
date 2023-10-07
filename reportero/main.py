@@ -233,8 +233,8 @@ def validate_result():
 
 class EnhancedJSONEncoder(json.JSONEncoder):
 
-    def __init__(self, complete: bool = False):
-        super().__init__()
+    def __init__(self, complete: bool = False, **kwargs):
+        super(EnhancedJSONEncoder, self).__init__(**kwargs)
         self.complete = complete
 
     def default(self, o):
