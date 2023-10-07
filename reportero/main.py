@@ -291,6 +291,6 @@ if __name__ == "__main__":
     output = Path(args.output)
     if args.format == 'json':
         with open(output, 'w') as f:
-            json.dump(dataset, fp=f, cls=EnhancedJSONEncoder(complete=args.complete), indent=4)
+            json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
     elif args.format == 'csv':
         write_csv(dataset, output)
