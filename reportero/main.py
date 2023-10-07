@@ -173,11 +173,11 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
                                                    objective=log["scientificMetadata"]["detectorParameters"][
                                                        "Objective"],
                                                    scintillator=log["scientificMetadata"]["detectorParameters"][
-                                                       "Scintillator"],
-                                                   exposure_time=log["scientificMetadata"]["detectorParameters"][
-                                                       "Exposure time"],
-                                                   effective_pixel_size=log["scientificMetadata"]["detectorParameters"][
-                                                       "Actual pixel size"],
+                                                       "Scintillator"], exposure_time=
+                                                   log["scientificMetadata"]["detectorParameters"]["Exposure time"][
+                                                       'v'], effective_pixel_size=
+                                                   log["scientificMetadata"]["detectorParameters"]["Actual pixel size"][
+                                                       'v'],
                                                    number_of_projections=log["scientificMetadata"]["scanParameters"][
                                                        "Number of projections"],
                                                    number_of_darks=log["scientificMetadata"]["scanParameters"][
@@ -227,23 +227,22 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
 
 
 def validate_result():
+    # TODO: If size if less than threshold, it's likely a failed scan
     pass
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
 
-    def asdict_factory(self, cls):
-        def factory(obj: list[tuple]) -> dict:
-            repr_fields = [field for field in dataclasses.fields(cls) if field.repr]
-            return {k: v for k, v in obj if k in repr_fields}
-
-        return factory
+    def __init__(self, complete: bool = False):
+        super().__init__()
+        self.complete = complete
 
     def default(self, o):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
-            # TODO: hardcoded, simplest solution at this point
-            d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"]]
+            if not self.complete:
+                # TODO: hardcoded, simplest solution at this point aftger exploring how to use dict_factory unsuccessfully.
+                d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"]]
             return d
 
         elif isinstance(o, datetime.datetime):
@@ -255,7 +254,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def write_csv(dataset: Dataset, csv_file_path: str):
+def write_csv(dataset: Dataset, csv_file_path: Path):
     # Write data to the CSV file
     with open(csv_file_path, 'w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
@@ -270,7 +269,7 @@ def write_csv(dataset: Dataset, csv_file_path: str):
             created_at = getattr(data_instance, 'created_at')
             size = sizeof_fmt(getattr(data_instance, 'size'))
             info: ScanInfo = getattr(data_instance, 'info')
-            number_of_scans = getattr(data_instance, 'info', 1)
+            number_of_scans = getattr(data_instance, 'number_of_subscans', 1)
             csv_writer.writerow(
                 [name, created_at, size, info.camera, info.microscope, info.exposure_time, info.effective_pixel_size,
                  info.number_of_projections, number_of_scans])
@@ -281,10 +280,17 @@ if __name__ == "__main__":
                                      epilog='Created with \u2764\ufe0f  by Dani')
     parser.add_argument('-p', '--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
+    parser.add_argument('-o', '--output', help='Output file')
     parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5.value,
                         choices=[e.value for e in Extension])
+    parser.add_argument('-c', '--complete', help='Complete dataset representation. Used only for json outputs.', action='store_true', default=False)
     args = parser.parse_args()
+
     path = Path(args.path).resolve()
     dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
-    print(json.dumps(dataset, cls=EnhancedJSONEncoder, indent=4))
-    write_csv(dataset, "test.csv")
+    output = Path(args.output)
+    if args.format == 'json':
+        with open(output, 'w') as f:
+            json.dump(dataset, fp=f, cls=EnhancedJSONEncoder(complete=args.complete), indent=4)
+    elif args.format == 'csv':
+        write_csv(dataset, output)
