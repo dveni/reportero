@@ -70,7 +70,7 @@ class StitchedScan(Scan):
         nodef_f_vals = (
             (f.name, attrgetter(f.name)(self))
             for f in dataclasses.fields(self)
-            if attrgetter(f.name)(self) != "data"
+            if f.name != "data" # Include every field but data in the representation. TODO: Maybe filter by iterable of simple scans to avoid hardcoding, but for the moment this solution is good enough   
         )
 
         nodef_f_repr = ", ".join(f"{name}={value}" for name, value in nodef_f_vals)
