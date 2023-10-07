@@ -240,8 +240,10 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
     def default(self, o):
         if dataclasses.is_dataclass(o):
-            # TODO: I do not like this
-            return dataclasses.asdict(o, dict_factory=self.asdict_factory(StitchedScan))
+            d = dataclasses.asdict(o)
+            # TODO: hardcoded, simplest solution at this point
+            d["scans"] = [{k: v} for scan in d["scans"] for k, v in scan.items() if k not in ["data"]]
+            return d
 
         elif isinstance(o, datetime.datetime):
             return o.isoformat()
