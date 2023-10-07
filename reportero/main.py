@@ -266,7 +266,7 @@ def write_csv(dataset: Dataset, csv_file_path):
 
         # Write data
         for data_instance in dataset.scans:
-            csv_writer.writerow([getattr(data_instance, field.name) for field in dataclasses.fields(dataset)])
+            csv_writer.writerow([getattr(data_instance, field.name) for field in dataclasses.fields(data_instance)])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool',
