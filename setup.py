@@ -5,10 +5,10 @@ import os
 from distutils.core import setup
 
 # Package meta-data.
-NAME = 'mypackage'
+NAME = 'reportero'
 DESCRIPTION = 'My short description for my project.'
 URL = 'https://github.com/dveni/python_package_template'
-EMAIL = 'me@example.com'
+EMAIL = 'daniel.vera-nieto@psi.ch'
 AUTHOR = 'Daniel Vera Nieto'
 REQUIRES_PYTHON = '>=3.12.0'
 VERSION = '0.1.0'

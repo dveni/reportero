@@ -1,3 +1,13 @@
+# TODO: Get output format from output file, and check it's wheter csv or json
+# TODO: Gather "patches" in a single place
+# TODO: Deal better with warnings
+# TODO: Potential issues output
+# TODO: print statistics on terminal
+# TODO: Generate report with beamtime statistics and potential issues to check manually
+# TODO: organize imports
+# TODO: docs
+# TODO: tests
+
 import argparse
 import csv
 import dataclasses
@@ -87,6 +97,12 @@ class Dataset:
 
 
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
+    """
+
+    :param num:
+    :param suffix:
+    :return:
+    """
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
             return num, unit + suffix  # f"{num:3.1f}{unit}{suffix}"
@@ -95,6 +111,12 @@ def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
 
 
 def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
+    """
+
+    :param path:
+    :param extension:
+    :return:
+    """
     files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
     if len(files) > 1:
         logging.warning(
@@ -107,6 +129,11 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
 
 # TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
 def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
+    """
+
+    :param log_file:
+    :return:
+    """
     with open(log_file, "r") as file:
         text = file.read()
 
@@ -137,6 +164,11 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
 
 
 def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, datetime.datetime, int, ScanInfo], None]:
+    """
+
+    :param target_file:
+    :return:
+    """
     if target_file is None:
         return None
     stats = target_file.stat()
@@ -189,6 +221,11 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
 
 
 def is_stitched_scan(dataset: Path) -> bool:
+    """
+
+    :param dataset:
+    :return:
+    """
     # TODO: Check dirs name, case there is an acquisition inside the previous acquisition: dataset.name in elem.name
     # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
     # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
@@ -199,6 +236,13 @@ def is_stitched_scan(dataset: Path) -> bool:
 
 
 def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
+    """
+
+    :param path:
+    :param extension:
+    :param _reference_file:
+    :return:
+    """
     dataset_paths = [elem for elem in path.iterdir() if
                      elem.is_dir() and not any(elem.match(f"*{ignored}*") for ignored in IGNORE_FOLDERS)]
     scans = []
@@ -241,7 +285,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             d = dataclasses.asdict(o)
             if not self.complete:
-                # TODO: hardcoded, simplest solution at this point aftger exploring how to use dict_factory unsuccessfully.
+                # Hardcoded, simplest solution at this point aftger exploring how to use dict_factory unsuccessfully.
                 d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"]]
             return d
 
@@ -255,6 +299,12 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 def write_csv(dataset: Dataset, csv_file_path: Path):
+    """
+
+    :param dataset:
+    :param csv_file_path:
+    :return:
+    """
     # Write data to the CSV file
     with open(csv_file_path, 'w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
@@ -276,14 +326,15 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='Reportero', description='TOMCAT Beamtime reporting tool',
+    parser = argparse.ArgumentParser(prog='Reportero', description='\U0001F408TOMCAT Beamtime reporting tool',
                                      epilog='Created with \u2764\ufe0f  by Dani')
     parser.add_argument('-p', '--path', help='Path containing all the scans of the beamtime.')
     parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
     parser.add_argument('-o', '--output', help='Output file')
     parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5.value,
                         choices=[e.value for e in Extension])
-    parser.add_argument('-c', '--complete', help='Complete dataset representation. Used only for json outputs.', action='store_true', default=False)
+    parser.add_argument('-c', '--complete', help='Complete dataset representation. Used only for json outputs.',
+                        action='store_true', default=False)
     args = parser.parse_args()
 
     path = Path(args.path).resolve()
