@@ -261,7 +261,7 @@ def write_csv(dataset: Dataset, csv_file_path):
         csv_writer = csv.writer(csv_file)
 
         # Write header
-        header = [field.name for field in dataclasses.fields(dataset)]
+        header = [field.name for field in dataclasses.fields(dataset.scans[0])]
         csv_writer.writerow(header)
 
         # Write data
