@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
+from operator import attrgetter
 from pathlib import Path
 from typing import Union
 
@@ -47,7 +48,7 @@ class SimpleScan(Scan):
     data: Path
 
 
-@dataclass
+@dataclass(repr=False)
 class StitchedScan(Scan):
     data: list[SimpleScan]
     number_of_subscans: int = field(init=False)
@@ -66,9 +67,14 @@ class StitchedScan(Scan):
         self.info = self.data[0].info #The info of the stitched scan should be the same as in every subscan
 
     def __repr__(self):
-        parent_repr = super().__repr__()
-        return parent_repr
-        # cls_annotations = self.__dict__.get('__annotations__', {})
+        nodef_f_vals = (
+            (f.name, attrgetter(f.name)(self))
+            for f in dataclasses.fields(self)
+            if attrgetter(f.name)(self) != "data"
+        )
+
+        nodef_f_repr = ", ".join(f"{name}={value}" for name, value in nodef_f_vals)
+        return f"{self.__class__.__name__}({nodef_f_repr})"
 
 
 
