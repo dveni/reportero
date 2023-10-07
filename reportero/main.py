@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union, Any
+from typing import Union
 
 IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
 
@@ -231,18 +231,17 @@ def validate_result():
 
 class EnhancedJSONEncoder(json.JSONEncoder):
 
-    def dict_factory(self, iterable: list[tuple[str, Any]]):
-        d = {}
-        for k, v in iterable:
-            if dataclasses.is_dataclass(v) and v.repr:
-                d[k] = v
-            else:
-                d[k] = v
-        return d
+    def asdict_factory(self, cls):
+        def factory(obj: list[tuple]) -> dict:
+            repr_fields = [field for field in dataclasses.fields(cls) if field.repr]
+            return {k: v for k, v in obj if k in repr_fields}
+
+        return factory
 
     def default(self, o):
         if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o, dict_factory=self.dict_factory)
+            # TODO: I do not like this
+            return dataclasses.asdict(o, dict_factory=self.asdict_factory(StitchedScan))
 
         elif isinstance(o, datetime.datetime):
             return o.isoformat()
