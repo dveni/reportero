@@ -18,6 +18,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from pprint import pprint
 from typing import Union
 
 IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
@@ -340,14 +341,14 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
 
 
 def create_report(path: Path, extension: Extension, output: Path, args):
-    logging.basicConfig(encoding='utf-8', level=logging.DEBUG, filemode='w',
+    logging.basicConfig(encoding='utf-8', level=logging.DEBUG,
                         format="%(asctime)s [%(levelname)s] %(message)s",
-                        handlers=[logging.FileHandler(output.with_suffix('.log')), logging.StreamHandler()])
+                        handlers=[logging.FileHandler(output.with_suffix('.log'), mode='w'), logging.StreamHandler()])
     assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
 
     dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
     logging.info("Dataset information:")
-    logging.info(dataset), print(dataset)
+    logging.info(dataset), pprint(dataset)
     if output.suffix == 'json':
         with open(output, 'w') as f:
             json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
