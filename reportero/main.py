@@ -213,6 +213,10 @@ class Tomcat:
                      info.effective_pixel_size,
                      info.number_of_projections, number_of_scans])
 
+    @staticmethod
+    def filter_config_json(files: list[Path]) -> list[Path]:
+        return [json_file for json_file in files if "config" not in json_file.name]
+
 
 class Report:
 
@@ -325,6 +329,8 @@ class Report:
         files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
         if self.tomcat and extension == Extension.h5:
             files = Tomcat.manage_pcoedge_h5_files(files)
+        if self.tomcat and extension == Extension.json:
+            files = Tomcat.filter_config_json(files)
         if len(files) > 1:
             logging.warning(
                 f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
@@ -352,8 +358,6 @@ class Report:
         if not json_file.exists():
 
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
-            if json_file and self.tomcat and  "config" in json_file.name:
-                json_file = None  # Avoid fallback to config file
             logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
 
         # Log files may not exist when a scan was cancelled
