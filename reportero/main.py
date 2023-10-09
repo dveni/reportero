@@ -343,15 +343,6 @@ class Report:
         json_file = target_file.with_suffix(suffix='.json')
         log_file = target_file.with_suffix(suffix='.log')
 
-        if self.tomcat:
-            # TODO: I do not like this, this would probably break things if a filename had already the substring `001`
-            log_file = Path(
-                str(log_file).replace('001',
-                                      ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
-            json_file = Path(
-                str(json_file).replace('001',
-                                       ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
-
         if not log_file.exists():
             log_file = self._find_file_by_extension(target_file.parent, Extension.log)
             logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
