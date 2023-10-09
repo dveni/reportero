@@ -92,7 +92,7 @@ class Tomcat:
     This class collect all the methods necessary to deal with the TOMCAT ecosystem.
     """
     @staticmethod
-    def manage_pcoedge_h5_files(files: list[Path]) -> Union[Path, list[Path]]:
+    def manage_pcoedge_h5_files(files: list[Path]) -> list[Path]:
         """
         Check if the files are from a pcoedge acquisition. If yes, return only the data file. Else, return all files.
         The pcoEdge acquisition script creates a `.h5` file for metadata and another `.h5` file with the actual data
@@ -101,10 +101,10 @@ class Tomcat:
         :param files: Two `.h5` files
         :return:
         """
-        if len(files) == 2 and all('.h5' in path.name for path in files):
+        if len(files) == 2 and all(Extension.h5.value in path.name for path in files):
             # If we are here, we are dealing with the standard pcoEdge acquisition results
             # Return the file with the data (prefix `001`)
-            return [f for f in files if '001' in f.name][0]
+            return [[f for f in files if '001' in f.name][0]] # Inside a list to unify treatment outside
         return files
 
     # TODO: Ideally, this would not be necessary if the timestamps were loggen into the json file.
@@ -319,7 +319,7 @@ class Report:
 
         files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
         if self.tomcat and extension == Extension.h5:
-            files = [Tomcat.manage_pcoedge_h5_files(files)]
+            files = Tomcat.manage_pcoedge_h5_files(files)
         if len(files) > 1:
             logging.warning(
                 f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
