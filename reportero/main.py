@@ -19,6 +19,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
+from tqdm import tqdm
 
 IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
 
@@ -259,7 +260,7 @@ def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file
     dataset_paths = [elem for elem in path.iterdir() if
                      elem.is_dir() and not any(elem.match(f"*{ignored}*") for ignored in IGNORE_FOLDERS)]
     scans = []
-    for dataset in sorted(dataset_paths):
+    for dataset in tqdm(sorted(dataset_paths)):
         target_file = find_file_by_extension(dataset, extension)
         if is_stitched_scan(dataset):
             sub_scans = list_scans(path=dataset, extension=extension, _reference_file=target_file)
