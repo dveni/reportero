@@ -324,25 +324,28 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
                 [name, created_at, size, info.camera, info.microscope, info.exposure_time, info.effective_pixel_size,
                  info.number_of_projections, number_of_scans])
 
+def create_report(path: Path, extension: Extension, output: Path, args):
+    dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
+
+    assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
+    if output.suffix == 'json':
+        with open(output, 'w') as f:
+            json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
+    elif output.suffix == 'csv':
+        write_csv(dataset, output)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='\U0001F408TOMCAT Beamtime reporting tool',
                                      epilog='Created with \u2764\ufe0f  by Dani')
     parser.add_argument('-p', '--path', help='Path containing all the scans of the beamtime.')
-    parser.add_argument('-f', '--format', help='Output format', default='json', choices=['json', 'csv'])
     parser.add_argument('-o', '--output', help='Output file')
     parser.add_argument('-e', '--extension', help='File extension of the target file.', default=Extension.h5.value,
                         choices=[e.value for e in Extension])
-    parser.add_argument('-c', '--complete', help='Complete dataset representation. Used only for json outputs.',
+    parser.add_argument('-c', '--complete',
+                        help='Complete dataset representation including details of every subscan. Used only for json outputs. Warning: This will create very long outputs for stitched scans with hundreds of subscans.',
                         action='store_true', default=False)
     args = parser.parse_args()
 
-    path = Path(args.path).resolve()
-    dataset = Dataset(path=path, scans=list_scans(path, extension=Extension[args.extension]))
-    output = Path(args.output)
-    if args.format == 'json':
-        with open(output, 'w') as f:
-            json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
-    elif args.format == 'csv':
-        write_csv(dataset, output)
+    create_report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output), args=args)
+

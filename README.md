@@ -13,4 +13,4 @@ Generate reports for your beamtimes from the terminal.
 
 ## Conventions
 - First level folders are independent acquisitions
-- In UNIX systems, the creation time actually corresponds to the latest metadata modification in the file
+- Creating a report with `csv` format expects a specific set of columns
