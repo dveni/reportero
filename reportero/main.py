@@ -168,7 +168,8 @@ def find_log_files(target_file: Path) -> Union[tuple[Path, Path], None]:
     log_file = target_file.with_suffix(suffix='.log')
 
     if not log_file.exists():
-        log_file = Path(str(log_file).replace('001', '')) # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
+        log_file = Path(
+            str(log_file).replace('001', ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
         if not log_file.exists():
             log_file = find_file_by_extension(target_file.parent, Extension.log)
             logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
@@ -339,7 +340,9 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
 
 
 def create_report(path: Path, extension: Extension, output: Path, args):
-    logging.basicConfig(filename=output.with_suffix('.log'), encoding='utf-8', level=logging.DEBUG, filemode='w')
+    logging.basicConfig(encoding='utf-8', level=logging.DEBUG, filemode='w',
+                        format="%(asctime)s [%(levelname)s] %(message)s",
+                        handlers=[logging.FileHandler(output.with_suffix('.log')), logging.StreamHandler()])
     assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
 
     dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
