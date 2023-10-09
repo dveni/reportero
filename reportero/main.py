@@ -81,7 +81,7 @@ class StitchedScan(Scan):
 @dataclass
 class Dataset:
     path: Path
-    scans: list[Scan]
+    scans: list[Scan] = field(repr=False)
     number_of_scans: int = field(init=False, default=0)
     size: tuple[float, str] = field(init=False, default=(0, 'B'))
     scan_time: datetime.timedelta = field(init=False, default=datetime.timedelta(0))
@@ -122,7 +122,7 @@ def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None
         logging.warning(
             f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
     if len(files) == 0:
-        logging.warning(f"No target file was found in path {path}!")
+        logging.warning(f"No file with extension {extension.value} was found in path {path}!")
         return None
     return files[0]
 
@@ -168,11 +168,16 @@ def find_log_files(target_file: Path) -> Union[tuple[Path, Path], None]:
     log_file = target_file.with_suffix(suffix='.log')
 
     if not log_file.exists():
-        log_file = find_file_by_extension(target_file.parent, Extension.log)
-        logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
+        log_file = Path(str(log_file).replace('001', '')) # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
+        if not log_file.exists():
+            log_file = find_file_by_extension(target_file.parent, Extension.log)
+            logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
     if not json_file.exists():
-        json_file = find_file_by_extension(target_file.parent, Extension.json)
-        logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
+        json_file = Path(
+            str(json_file).replace('001', ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
+        if not json_file.exists():
+            json_file = find_file_by_extension(target_file.parent, Extension.json)
+            logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
 
     # Log files may not exist when a scan was cancelled
     if log_file is None or json_file is None or "config" in json_file.name:  # Avoid fallback to config file
