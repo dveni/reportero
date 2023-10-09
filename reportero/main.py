@@ -105,11 +105,11 @@ class Tomcat:
             # If we are here, we are dealing with the standard pcoEdge acquisition results
             # Return the file with the data (prefix `001`)
             data_file = [f for f in files if '001' in f.name]
-            if data_file:
+            if len(data_file) != 1:
                 # This can happen when a data file from other scan is in the wrong folder
                 logging.warning("There are two data files! Probably a wrong scan was saved in this folder... ")
                 return files
-            return [data_file[0]] # Inside a list to unify treatment outside
+            return data_file
         return files
 
     # TODO: Ideally, this would not be necessary if the timestamps were loggen into the json file.
