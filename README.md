@@ -1,6 +1,6 @@
 # Reportero: TOMCAT:cat2: Beamtime report generator
 ___
-Generate reports for your beamtimes from the terminal, fast.
+Generate reports for your beamtimes from the terminal.
 
 ## Features:
 - List acquired datasets and show relevant information

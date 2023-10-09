@@ -6,8 +6,8 @@ from distutils.core import setup
 
 # Package meta-data.
 NAME = 'reportero'
-DESCRIPTION = 'My short description for my project.'
-URL = 'https://github.com/dveni/python_package_template'
+DESCRIPTION = 'Generate reports for your beamtimes.'
+URL = 'https://github.com/dveni/reportero'
 EMAIL = 'daniel.vera-nieto@psi.ch'
 AUTHOR = 'Daniel Vera Nieto'
 REQUIRES_PYTHON = '>=3.12.0'
@@ -54,7 +54,6 @@ setup(
     author=AUTHOR,
     author_email=EMAIL,
     packages=['reportero'],
-    scripts=['scripts/example_script.py'],
     url=URL,
     license='LICENSE',
     description=DESCRIPTION,
