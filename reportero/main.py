@@ -104,7 +104,7 @@ class Tomcat:
         if len(files) == 2 and all('.h5' in path.name for path in files):
             # If we are here, we are dealing with the standard pcoEdge acquisition results
             # Return the file with the data (prefix `001`)
-            return [f for f in files if '001' in f][0]
+            return [f for f in files if '001' in f.name][0]
         return files
 
     # TODO: Ideally, this would not be necessary if the timestamps were loggen into the json file.
