@@ -1,27 +1,17 @@
-# TODO: Get output format from output file, and check it's wheter csv or json
-# TODO: Gather "patches" in a single place
-# TODO: Deal better with warnings
-# TODO: Potential issues output
-# TODO: print statistics on terminal
 # TODO: Generate report with beamtime statistics and potential issues to check manually
-# TODO: organize imports
 # TODO: docs
 # TODO: tests
 
 import argparse
 import csv
-import dataclasses
 import datetime
 import enum
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass, asdict
 from pathlib import Path
-from pprint import pprint
-from typing import Union
-
-IGNORE_FOLDERS = ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
+from typing import Union, Tuple, Any
 
 
 class Extension(enum.Enum):
@@ -97,6 +87,283 @@ class Dataset:
             self.efficiency = self.scan_time / (self.scans[-1].finished_at - self.scans[0].created_at)
 
 
+class Tomcat:
+    """
+    This class collect all the methods necessary to deal with the TOMCAT ecosystem.
+    """
+    @staticmethod
+    def manage_pcoedge_h5_files(files: list[Path]) -> Union[Path, list[Path]]:
+        """
+        Check if the files are from a pcoedge acquisition. If yes, return only the data file. Else, return all files.
+        The pcoEdge acquisition script creates a `.h5` file for metadata and another `.h5` file with the actual data
+        and the prefix corresponding to the stitching subscan. When there is a single scan, it adds the prefix `001`
+        to the data `.h5` file
+        :param files: Two `.h5` files
+        :return:
+        """
+        if len(files) == 2 and all('.h5' in path for path in files):
+            # If we are here, we are dealing with the standard pcoEdge acquisition results
+            # Return the file with the data (prefix `001`)
+            return [f for f in files if '001' in f][0]
+        return files
+
+    # TODO: Ideally, this would not be necessary if the timestamps were loggen into the json file.
+    @staticmethod
+    def get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
+        """
+
+        :param log_file:
+        :return:
+        """
+        with open(log_file, "r") as file:
+            text = file.read()
+
+        # Define the patterns for matching the datetime string (thanks ChatGPT)
+        start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+        # TODO: I did not manage to find a regexp matching both patterns...
+        end_pattern1 = re.compile(r'SCAN\s*FINISHED\s+at\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
+                                  re.IGNORECASE)
+        end_pattern2 = re.compile(r'scan\s*ended\s+at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
+                                  re.IGNORECASE)
+
+        # Search for the pattern in the text
+        start_match = re.search(start_pattern, text)
+        end_match1 = re.search(end_pattern1, text)
+        end_match2 = re.search(end_pattern2, text)
+
+        if start_match and (end_match1 or end_match2):
+            # Extract the matched datetime string
+            start_datetime_str = start_match.group(1)
+            end_datetime_str = end_match1.group(1) if end_match1 is not None else end_match2.group(1)
+            # Convert the string to a datetime object
+            created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
+            finished_at = datetime.datetime.strptime(end_datetime_str, '%a %b %d %H:%M:%S %Y')
+            return created_at, finished_at
+        else:
+            # Return None if no match is found
+            return None, None
+    @staticmethod
+    def ignored_folders():
+        return ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
+
+    @staticmethod
+    def get_scan_info(json_file: Path)-> ScanInfo:
+        with open(json_file, "r") as j:
+            log = json.load(j)
+
+        roi = (
+            log["scientificMetadata"]["detectorParameters"]["X-ROI End"] -
+            log["scientificMetadata"]["detectorParameters"][
+                "X-ROI Start"] + 1,
+            log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] -
+            log["scientificMetadata"]["detectorParameters"][
+                "Y-ROI Start"] + 1)
+
+        return ScanInfo(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
+                                                       microscope=log["scientificMetadata"]["detectorParameters"][
+                                                           "Microscope"],
+                                                       objective=log["scientificMetadata"]["detectorParameters"][
+                                                           "Objective"],
+                                                       scintillator=log["scientificMetadata"]["detectorParameters"][
+                                                           "Scintillator"], exposure_time=
+                                                       log["scientificMetadata"]["detectorParameters"]["Exposure time"][
+                                                           'v'], effective_pixel_size=
+                                                       log["scientificMetadata"]["detectorParameters"][
+                                                           "Actual pixel size"][
+                                                           'v'],
+                                                       number_of_projections=
+                                                       log["scientificMetadata"]["scanParameters"][
+                                                           "Number of projections"],
+                                                       number_of_darks=log["scientificMetadata"]["scanParameters"][
+                                                           "Number of darks"],
+                                                       number_of_whites=log["scientificMetadata"]["scanParameters"][
+                                                           "Number of flats"], region_of_interest=roi,
+
+                                                       )
+    @staticmethod
+    def write_csv(dataset: Dataset, csv_file_path: Path):
+        """
+
+        :param dataset:
+        :param csv_file_path:
+        :return:
+        """
+        # Write data to the CSV file
+        with open(csv_file_path, 'w', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time', 'effective_pixel_size',
+                       'projections', 'number_of_subscans']
+            # Write header
+            csv_writer.writerow(columns)
+
+            # Write data
+            for data_instance in dataset.scans:
+                name = Path(getattr(data_instance, 'path')).name
+                created_at = getattr(data_instance, 'created_at')
+                size = sizeof_fmt(getattr(data_instance, 'size'))
+                info: ScanInfo = getattr(data_instance, 'info')
+                number_of_scans = getattr(data_instance, 'number_of_subscans', 1)
+                csv_writer.writerow(
+                    [name, created_at, size, info.camera, info.microscope, info.exposure_time,
+                     info.effective_pixel_size,
+                     info.number_of_projections, number_of_scans])
+
+
+class Report:
+
+    def __init__(self, path: Path,  extension: Extension, output: Path, complete:bool = False,  tomcat: bool = True):
+        self.path = path
+        self.extension =extension
+        self.output = output
+        self.complete = complete
+        self.tomcat = tomcat
+
+        assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
+        logging.basicConfig(encoding='utf-8', level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+                            handlers=[logging.FileHandler(self.output.with_suffix('.log'), mode='w'),
+                                      logging.StreamHandler()])
+
+    def generate_report(self):
+        logging.info("Generating report...")
+        dataset = Dataset(path=self.path, scans=self._list_scans(self.path))
+        logging.info("Dataset information:")
+        logging.info(dataset)
+        if self.output.suffix == 'json':
+            with open(self.output, 'w') as f:
+                json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=self.complete).default, indent=4)
+        elif self.output.suffix == 'csv':
+            assert Tomcat, "Csv report generation is tailored only for Tomcat!"
+            Tomcat.write_csv(dataset, self.output)
+        logging.info("Report generated successfully!")
+
+    def _list_scans(self, path: Path, _reference_file: Path = None) -> list:
+        """
+
+        :param path:
+        :param _reference_file:
+        :return:
+        """
+        dataset_paths = [elem for elem in path.iterdir() if
+                         elem.is_dir() and not self._is_path_ignored(elem)]
+        scans = []
+        for dataset in sorted(dataset_paths):
+            target_file = self._find_file_by_extension(dataset, self.extension)
+            if self._is_stitched_scan(dataset):
+                sub_scans = self._list_scans(path=dataset, _reference_file=target_file)
+                if not sub_scans:
+                    continue
+                scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
+                scans.append(scan)
+
+            else:
+                stats = self._get_scan_statistics(target_file)
+                if stats is None:
+                    continue
+                created_at, finished_at, size, scan_stats = stats
+                _reference_file = _reference_file if _reference_file is not None else target_file
+                scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
+                                  created_at=created_at, finished_at=finished_at, info=scan_stats)
+                scans.append(scan)
+
+        # Sort by creation date
+        scans = sorted(scans, key=lambda scan: scan.created_at)
+        return scans
+
+    def _get_scan_statistics(self,target_file: Path) -> Union[None, tuple[Any, Any, int, ScanInfo], tuple[
+        float, float, int, None]]:
+        """
+
+        :param target_file:
+        :return:
+        """
+        if target_file is None:
+            return None
+
+        stats = target_file.stat()
+        size: int = stats.st_size
+        created_at, finished_at = stats.st_ctime, stats.st_mtime
+
+        if self.tomcat:
+            log_file, json_file = self._find_log_files(target_file)
+            if log_file is None or json_file is None:
+                return None
+
+            created_at, finished_at = Tomcat.get_timestamps(log_file)
+            scan_info = Tomcat.get_scan_info(json_file)
+
+            return created_at, finished_at, size, scan_info
+        else:
+            return created_at, finished_at, size, None
+
+
+    def _is_path_ignored(self, path: Path) -> bool:
+        return any(ignored in path.name for ignored in Tomcat.ignored_folders()) if self.tomcat else False
+
+    def _is_stitched_scan(self, dataset: Path) -> bool:
+        """
+
+        :param dataset:
+        :return:
+        """
+        # Check whether elements are directories (subscans).
+        return any(
+            elem.is_dir() and not self._is_path_ignored(elem) for elem in (dataset.iterdir()))
+
+    def _find_file_by_extension(self, path: Path, extension: Extension) -> Union[Path, None]:
+        """
+
+        :param path:
+        :param extension:
+        :return:
+        """
+
+        files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
+        if self.tomcat and extension == Extension.h5:
+            files = Tomcat.manage_pcoedge_h5_files(files)
+        if len(files) > 1:
+            logging.warning(
+                f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
+            return files[0]
+        if len(files) == 0:
+            logging.warning(f"No file with extension {extension.value} was found in path {path}!")
+            return None
+
+    def _find_log_files(self, target_file: Path) -> Union[tuple[Path, Path], None]:
+        json_file = target_file.with_suffix(suffix='.json')
+        log_file = target_file.with_suffix(suffix='.log')
+
+        if self.tomcat:
+            # TODO: I do not like this, this would probably break things if a filename had already the substring `001`
+            log_file = Path(
+                str(log_file).replace('001',
+                                      ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
+            json_file = Path(
+                str(json_file).replace('001',
+                                       ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
+
+        if not log_file.exists():
+            log_file = self._find_file_by_extension(target_file.parent, Extension.log)
+            logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
+        if not json_file.exists():
+
+            json_file = self._find_file_by_extension(target_file.parent, Extension.json)
+            if self.tomcat and  "config" in json_file.name:
+                return None  # Avoid fallback to config file
+            logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
+
+        # Log files may not exist when a scan was cancelled
+        return log_file, json_file
+
+    def validate_result(self):
+        # TODO: If size if less than threshold, it's likely a failed scan
+        # TODO: Check dirs name, case there is an acquisition inside the previous acquisition: dataset.name in elem.name
+        # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
+        # TODO: and the dataset name is contained in subscan name
+        #     # (by convention, the subscans are named after the dataset name)
+        pass
+
+
+
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     """
 
@@ -111,185 +378,6 @@ def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     return num, unit + suffix
 
 
-def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
-    """
-
-    :param path:
-    :param extension:
-    :return:
-    """
-    files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
-    if len(files) > 1:
-        logging.warning(
-            f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
-    if len(files) == 0:
-        logging.warning(f"No file with extension {extension.value} was found in path {path}!")
-        return None
-    return files[0]
-
-
-# TODO: Ideally, this would not be necessary. However, it's the only file where timestamps are saved...
-def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
-    """
-
-    :param log_file:
-    :return:
-    """
-    with open(log_file, "r") as file:
-        text = file.read()
-
-    # Define the patterns for matching the datetime string (thanks ChatGPT)
-    start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
-    # TODO: I did not manage to find a regexp matching both patterns...
-    end_pattern1 = re.compile(r'SCAN\s*FINISHED\s+at\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
-                              re.IGNORECASE)
-    end_pattern2 = re.compile(r'scan\s*ended\s+at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
-                              re.IGNORECASE)
-
-    # Search for the pattern in the text
-    start_match = re.search(start_pattern, text)
-    end_match1 = re.search(end_pattern1, text)
-    end_match2 = re.search(end_pattern2, text)
-
-    if start_match and (end_match1 or end_match2):
-        # Extract the matched datetime string
-        start_datetime_str = start_match.group(1)
-        end_datetime_str = end_match1.group(1) if end_match1 is not None else end_match2.group(1)
-        # Convert the string to a datetime object
-        created_at = datetime.datetime.strptime(start_datetime_str, '%a %b %d %H:%M:%S %Y')
-        finished_at = datetime.datetime.strptime(end_datetime_str, '%a %b %d %H:%M:%S %Y')
-        return created_at, finished_at
-    else:
-        # Return None if no match is found
-        return None, None
-
-
-def find_log_files(target_file: Path) -> Union[tuple[Path, Path], None]:
-    json_file = target_file.with_suffix(suffix='.json')
-    log_file = target_file.with_suffix(suffix='.log')
-
-    if not log_file.exists():
-        log_file = Path(
-            str(log_file).replace('001', ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
-        if not log_file.exists():
-            log_file = find_file_by_extension(target_file.parent, Extension.log)
-            logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
-    if not json_file.exists():
-        json_file = Path(
-            str(json_file).replace('001', ''))  # pcoEdge saves two .h5 files, the logs do not have the numeric suffix
-        if not json_file.exists():
-            json_file = find_file_by_extension(target_file.parent, Extension.json)
-            logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
-
-    # Log files may not exist when a scan was cancelled
-    if log_file is None or json_file is None or "config" in json_file.name:  # Avoid fallback to config file
-        return None
-    else:
-        return log_file, json_file
-
-
-def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, datetime.datetime, int, ScanInfo], None]:
-    """
-
-    :param target_file:
-    :return:
-    """
-    if target_file is None:
-        return None
-    stats = target_file.stat()
-    size = stats.st_size
-
-    logs = find_log_files(target_file)
-    if logs is None:
-        return None
-    log_file, json_file = logs
-
-    created_at, finished_at = _get_timestamps(log_file)
-    with open(json_file, "r") as j:
-        log = json.load(j)
-
-    roi = (
-        log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"][
-            "X-ROI Start"] + 1,
-        log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"][
-            "Y-ROI Start"] + 1)
-
-    return created_at, finished_at, size, ScanInfo(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
-                                                   microscope=log["scientificMetadata"]["detectorParameters"][
-                                                       "Microscope"],
-                                                   objective=log["scientificMetadata"]["detectorParameters"][
-                                                       "Objective"],
-                                                   scintillator=log["scientificMetadata"]["detectorParameters"][
-                                                       "Scintillator"], exposure_time=
-                                                   log["scientificMetadata"]["detectorParameters"]["Exposure time"][
-                                                       'v'], effective_pixel_size=
-                                                   log["scientificMetadata"]["detectorParameters"]["Actual pixel size"][
-                                                       'v'],
-                                                   number_of_projections=log["scientificMetadata"]["scanParameters"][
-                                                       "Number of projections"],
-                                                   number_of_darks=log["scientificMetadata"]["scanParameters"][
-                                                       "Number of darks"],
-                                                   number_of_whites=log["scientificMetadata"]["scanParameters"][
-                                                       "Number of flats"], region_of_interest=roi,
-
-                                                   )
-
-
-def is_stitched_scan(dataset: Path) -> bool:
-    """
-
-    :param dataset:
-    :return:
-    """
-    # TODO: Check dirs name, case there is an acquisition inside the previous acquisition: dataset.name in elem.name
-    # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
-    # Check whether elements are directories (subscans) and the dataset name is contained in subscan name
-    # (by convention, the subscans are named after the dataset name).
-    # TODO: The name check does not work for the manual stitched scan...
-    return any(
-        elem.is_dir() and not any(ignored in elem.name for ignored in IGNORE_FOLDERS) for elem in (dataset.iterdir()))
-
-
-def list_scans(path: Path, extension: Extension = Extension.txt, _reference_file: Path = None) -> list:
-    """
-
-    :param path:
-    :param extension:
-    :param _reference_file:
-    :return:
-    """
-    dataset_paths = [elem for elem in path.iterdir() if
-                     elem.is_dir() and not any(elem.match(f"*{ignored}*") for ignored in IGNORE_FOLDERS)]
-    scans = []
-    for dataset in sorted(dataset_paths):
-        target_file = find_file_by_extension(dataset, extension)
-        if is_stitched_scan(dataset):
-            sub_scans = list_scans(path=dataset, extension=extension, _reference_file=target_file)
-            if not sub_scans:
-                continue
-            scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
-            scans.append(scan)
-
-        else:
-            stats = get_scan_statistics(target_file)
-            if stats is None:
-                continue
-            created_at, finished_at, size, scan_stats = stats
-            _reference_file = _reference_file if _reference_file is not None else target_file
-            scan = SimpleScan(path=dataset, reference_file=_reference_file, data=target_file, size=size,
-                              created_at=created_at, finished_at=finished_at, info=scan_stats)
-            scans.append(scan)
-
-    # Sort by creation date
-    scans = sorted(scans, key=lambda scan: scan.created_at)
-    return scans
-
-
-def validate_result():
-    # TODO: If size if less than threshold, it's likely a failed scan
-    pass
-
-
 class EnhancedJSONEncoder(json.JSONEncoder):
 
     def __init__(self, complete: bool = False, **kwargs):
@@ -297,8 +385,8 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         self.complete = complete
 
     def default(self, o):
-        if dataclasses.is_dataclass(o):
-            d = dataclasses.asdict(o)
+        if is_dataclass(o):
+            d = asdict(o)
             if not self.complete:
                 # Hardcoded, simplest solution at this point aftger exploring how to use dict_factory unsuccessfully.
                 d["scans"] = [{k: v for k, v in scan.items() if k not in ["data"]} for scan in d["scans"]]
@@ -313,47 +401,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def write_csv(dataset: Dataset, csv_file_path: Path):
-    """
 
-    :param dataset:
-    :param csv_file_path:
-    :return:
-    """
-    # Write data to the CSV file
-    with open(csv_file_path, 'w', newline='') as csv_file:
-        csv_writer = csv.writer(csv_file)
-        columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time', 'effective_pixel_size',
-                   'projections', 'number_of_subscans']
-        # Write header
-        csv_writer.writerow(columns)
-
-        # Write data
-        for data_instance in dataset.scans:
-            name = Path(getattr(data_instance, 'path')).name
-            created_at = getattr(data_instance, 'created_at')
-            size = sizeof_fmt(getattr(data_instance, 'size'))
-            info: ScanInfo = getattr(data_instance, 'info')
-            number_of_scans = getattr(data_instance, 'number_of_subscans', 1)
-            csv_writer.writerow(
-                [name, created_at, size, info.camera, info.microscope, info.exposure_time, info.effective_pixel_size,
-                 info.number_of_projections, number_of_scans])
-
-
-def create_report(path: Path, extension: Extension, output: Path, args):
-    logging.basicConfig(encoding='utf-8', level=logging.DEBUG,
-                        format="%(asctime)s [%(levelname)s] %(message)s",
-                        handlers=[logging.FileHandler(output.with_suffix('.log'), mode='w'), logging.StreamHandler()])
-    assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
-
-    dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
-    logging.info("Dataset information:")
-    logging.info(dataset), pprint(dataset)
-    if output.suffix == 'json':
-        with open(output, 'w') as f:
-            json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
-    elif output.suffix == 'csv':
-        write_csv(dataset, output)
 
 
 if __name__ == "__main__":
@@ -368,5 +416,5 @@ if __name__ == "__main__":
                         action='store_true', default=False)
     args = parser.parse_args()
 
-    create_report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output),
-                  args=args)
+    Report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output)).generate_report()
+
