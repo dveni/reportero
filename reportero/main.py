@@ -105,9 +105,9 @@ def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     """
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
-            return num, unit + suffix  # f"{num:3.1f}{unit}{suffix}"
+            return num, unit + suffix
         num /= 1024.0
-    return num, unit + suffix  # f"{num:.1f}Yi{suffix}"
+    return num, unit + suffix
 
 
 def find_file_by_extension(path: Path, extension: Extension) -> Union[Path, None]:
@@ -163,6 +163,24 @@ def _get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime],
         return None, None
 
 
+def find_log_files(target_file: Path) -> Union[tuple[Path, Path], None]:
+    json_file = target_file.with_suffix(suffix='.json')
+    log_file = target_file.with_suffix(suffix='.log')
+
+    if not log_file.exists():
+        log_file = find_file_by_extension(target_file.parent, Extension.log)
+        logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
+    if not json_file.exists():
+        json_file = find_file_by_extension(target_file.parent, Extension.json)
+        logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
+
+    # Log files may not exist when a scan was cancelled
+    if log_file is None or json_file is None or "config" in json_file.name:  # Avoid fallback to config file
+        return None
+    else:
+        return log_file, json_file
+
+
 def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, datetime.datetime, int, ScanInfo], None]:
     """
 
@@ -173,21 +191,11 @@ def get_scan_statistics(target_file: Path) -> Union[tuple[datetime.datetime, dat
         return None
     stats = target_file.stat()
     size = stats.st_size
-    json_file = target_file.with_suffix(suffix='.json')
-    log_file = target_file.with_suffix(suffix='.log')
 
-    if not log_file.exists():
-        logging.warning(f"Log file {log_file} was not found! Looking for log in {target_file.parent}...")
-        log_file = find_file_by_extension(target_file.parent, Extension.log)
-        logging.warning(f"Using logfile at {log_file}")
-    if not json_file.exists():
-        logging.warning(f"Json file {json_file} was not found! Looking for json in {target_file.parent}...")
-        json_file = find_file_by_extension(target_file.parent, Extension.json)
-        logging.warning(f"Using json file at {json_file}")
-
-    if log_file is None or json_file is None or "config" in json_file.name:  # Avoid fallback to config file
-        # This may occur when a scan was cancelled
+    logs = find_log_files(target_file)
+    if logs is None:
         return None
+    log_file, json_file = logs
 
     created_at, finished_at = _get_timestamps(log_file)
     with open(json_file, "r") as j:
@@ -324,10 +332,17 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
                 [name, created_at, size, info.camera, info.microscope, info.exposure_time, info.effective_pixel_size,
                  info.number_of_projections, number_of_scans])
 
-def create_report(path: Path, extension: Extension, output: Path, args):
-    dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
 
+def create_report(path: Path, extension: Extension, output: Path, args):
+    logging.basicConfig(filename=output.with_suffix('.log'), encoding='utf-8', level=logging.DEBUG)
     assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
+
+    dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
+    logging.info("Dataset information:")
+    for f in dataclasses.fields(dataset):
+        if f.name != "scans":
+            logging.info(f)
+            print(f)
     if output.suffix == 'json':
         with open(output, 'w') as f:
             json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
@@ -347,5 +362,5 @@ if __name__ == "__main__":
                         action='store_true', default=False)
     args = parser.parse_args()
 
-    create_report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output), args=args)
-
+    create_report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output),
+                  args=args)
