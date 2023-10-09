@@ -319,14 +319,14 @@ class Report:
 
         files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
         if self.tomcat and extension == Extension.h5:
-            files = Tomcat.manage_pcoedge_h5_files(files)
+            files = [Tomcat.manage_pcoedge_h5_files(files)]
         if len(files) > 1:
             logging.warning(
                 f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
-            return files[0]
         if len(files) == 0:
             logging.warning(f"No file with extension {extension.value} was found in path {path}!")
             return None
+        return files[0]
 
     def _find_log_files(self, target_file: Path) -> Union[tuple[Path, Path], None]:
         json_file = target_file.with_suffix(suffix='.json')
