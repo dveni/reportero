@@ -101,7 +101,7 @@ class Tomcat:
         :param files: Two `.h5` files
         :return:
         """
-        if len(files) == 2 and all('.h5' in path for path in files):
+        if len(files) == 2 and all('.h5' in path.name for path in files):
             # If we are here, we are dealing with the standard pcoEdge acquisition results
             # Return the file with the data (prefix `001`)
             return [f for f in files if '001' in f][0]
