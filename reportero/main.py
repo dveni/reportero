@@ -339,15 +339,12 @@ def write_csv(dataset: Dataset, csv_file_path: Path):
 
 
 def create_report(path: Path, extension: Extension, output: Path, args):
-    logging.basicConfig(filename=output.with_suffix('.log'), encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename=output.with_suffix('.log'), encoding='utf-8', level=logging.DEBUG, filemode='w')
     assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
 
     dataset = Dataset(path=path, scans=list_scans(path, extension=extension))
     logging.info("Dataset information:")
-    for f in dataclasses.fields(dataset):
-        if f.name != "scans":
-            logging.info(f)
-            print(f)
+    logging.info(dataset), print(dataset)
     if output.suffix == 'json':
         with open(output, 'w') as f:
             json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=args.complete).default, indent=4)
