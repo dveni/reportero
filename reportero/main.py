@@ -347,8 +347,8 @@ class Report:
         if not json_file.exists():
 
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
-            if self.tomcat and  "config" in json_file.name:
-                return None  # Avoid fallback to config file
+            if json_file and self.tomcat and  "config" in json_file.name:
+                json_file = None  # Avoid fallback to config file
             logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
 
         # Log files may not exist when a scan was cancelled
