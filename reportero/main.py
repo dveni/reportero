@@ -125,11 +125,11 @@ class Tomcat:
             text = file.read()
 
         # Define the patterns for matching the datetime string (thanks ChatGPT)
-        start_pattern = r'scan.*started on\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})'
+        start_pattern = r'scan.*started on\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})'
         # TODO: I did not manage to find a regexp matching both patterns...
-        end_pattern1 = re.compile(r'SCAN\s*FINISHED\s+at\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
+        end_pattern1 = re.compile(r'SCAN\s*FINISHED\s+at\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})',
                                   re.IGNORECASE)
-        end_pattern2 = re.compile(r'scan\s*ended\s+at\s+:\s+(\w{3}\s\w{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4})',
+        end_pattern2 = re.compile(r'scan\s*ended\s+at\s+:\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})',
                                   re.IGNORECASE)
 
         # Search for the pattern in the text
