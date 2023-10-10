@@ -1,6 +1,3 @@
-# TODO: docs
-# TODO: tests
-
 import argparse
 import csv
 import datetime
@@ -427,8 +424,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return str(o)
         return super().default(o)
 
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(prog='Reportero', description='\U0001F408TOMCAT Beamtime reporting tool',
                                      epilog='Created with \u2764\ufe0f  by Dani')
     parser.add_argument('-p', '--path', help='Path containing all the scans of the beamtime.')
@@ -448,3 +444,7 @@ if __name__ == "__main__":
 
     Report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output),
            complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat).generate_report()
+
+
+if __name__ == "__main__":
+    main()
