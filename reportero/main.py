@@ -194,7 +194,7 @@ class Tomcat:
         # Write data to the CSV file
         with open(csv_file_path, 'w', newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
-            columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time', 'effective_pixel_size',
+            columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time [ms]', 'effective_pixel_size [um]',
                        'projections', 'number_of_subscans']
             # Write header
             csv_writer.writerow(columns)
@@ -217,12 +217,13 @@ class Tomcat:
 class Report:
 
     def __init__(self, path: Path, extension: Extension, output: Path, complete: bool = False, tomcat: bool = True,
-                 size_threshold: int = 1024 ** 3):
+                 size_threshold: int = 1024 ** 3, ignored_folders: list[str] = None):
         self.path = path
         self.extension = extension
         self.output = output
         self.complete = complete
         self.tomcat = tomcat
+        self.ignored_folders = ignored_folders
 
         self.size_threshold = size_threshold
         self.dataset = None
@@ -318,7 +319,8 @@ class Report:
         :param path:
         :return: True if `path` is ignored
         """
-        return any(ignored in path.name for ignored in Tomcat.ignored_folders()) if self.tomcat else False
+        ignore = Tomcat.ignored_folders() if self.ignored_folders is None else self.ignored_folders
+        return any(ignored in path.name for ignored in ignore) if self.tomcat else False
 
     def _is_stitched_scan(self, scan: Path) -> bool:
         """
@@ -328,7 +330,7 @@ class Report:
         """
         # Check whether elements are directories (subscans).
         return any(
-            elem.is_dir() and not self._is_path_ignored(elem) and scan.name in elem.name for elem in (scan.iterdir()))
+            elem.is_dir() and not self._is_path_ignored(elem) for elem in (scan.iterdir()))
 
     def _find_file_by_extension(self, path: Path, extension: Extension) -> Union[Path, None]:
         """
@@ -383,6 +385,10 @@ class Report:
             if scan.size < self.size_threshold:
                 logging.warning(
                     f"The scan {scan.path} has a size under {sizeof_fmt(self.size_threshold)} (likely a failed scan)")
+            if isinstance(scan, StitchedScan):
+                for subscan in scan.data:
+                    if scan.path.name not in subscan.path.name:
+                        logging.warning(f"{subscan.path.name} was expected to include {scan.path.name}. It is likely a scan was saved in the folder of a previous scan...")
 
 
 def sizeof_fmt(num: int, suffix: str = "B") -> str:
