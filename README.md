@@ -23,6 +23,12 @@ This will create two files:
 - test.csv: Contains a list with all the scans done during the beamtime, along with relevant information. The output file can be named differently. 
 - test.log: Log file showing warnings that could be potential issues (e.g.: Missing flat images files, duplicated files, etc)
 
+Additionally, you will be able to see relevant statistics (both in the logs and on the terminal):
+- Total data size
+- Number of scans
+- Total scanning time
+- Beamtime efficiency: ration between total scanning time and the difference between the finished timestamp of the last scan and the created timestamp of the first scan.
+
 More options are explained in the help command `reportero -h`
 
 ## Conventions

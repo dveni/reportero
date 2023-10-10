@@ -6,3 +6,5 @@
 
 
 # Scans are sorted according to creation time
+
+# Test when not TOMCAT

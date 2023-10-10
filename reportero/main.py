@@ -110,7 +110,7 @@ class Tomcat:
             return data_file
         return files
 
-    # TODO: Ideally, this would not be necessary if the timestamps were loggen into the json file.
+    # TODO: Ideally, this would not be necessary if the timestamps were logged into the json file.
     @staticmethod
     def get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
         """
