@@ -20,7 +20,7 @@ Run the tool on one of your beamtime folders:
 reportero -p <PATH TO BEAMTIME FOLDER> -o test.csv
 ```
 This will create two files:
-- test.csv: Contains a list with all the scans done during the beamtime, along with relevant information. The output file can be named differently. 
+- test.csv: Contains a list with all the scans done during the beamtime sorted by creation time, along with relevant information. The output file can be named differently. 
 - test.log: Log file showing warnings that could be potential issues (e.g.: Missing flat images files, duplicated files, etc)
 
 Additionally, you will be able to see relevant statistics (both in the logs and on the terminal):
