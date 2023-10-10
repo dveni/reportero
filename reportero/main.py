@@ -70,7 +70,7 @@ class Dataset:
     path: Path
     scans: list[Scan] = field(repr=False)
     number_of_scans: int = field(init=False, default=0)
-    size: tuple[float, str] = field(init=False, default=(0, 'B'))
+    size: str = field(init=False, default=(0, 'B'))
     scan_time: datetime.timedelta = field(init=False, default=datetime.timedelta(0))
     efficiency: float = field(init=False, default=0.0)
 
@@ -385,7 +385,7 @@ class Report:
                     f"The scan {scan.path} has a size under {sizeof_fmt(self.size_threshold)} (likely a failed scan)")
 
 
-def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
+def sizeof_fmt(num: int, suffix: str = "B") -> str:
     """
     Format a number in bytes into the largest possible multiple
     :param num: Number of bytes
@@ -394,9 +394,9 @@ def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     """
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
-            return num, unit + suffix
+            return f"{num:.3}{unit}{suffix}"
         num /= 1024.0
-    return num, unit + suffix
+    return f"{num:.3}{unit}{suffix}"
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
