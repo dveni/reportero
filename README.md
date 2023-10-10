@@ -23,6 +23,8 @@ This will create two files:
 - test.csv: Contains a list with all the scans done during the beamtime, along with relevant information. The output file can be named differently. 
 - test.log: Log file showing warnings that could be potential issues (e.g.: Missing flat images files, duplicated files, etc)
 
+More options are explained in the help command `reportero -h`
+
 ## Conventions
 - First level folders are independent acquisitions
 - Subsequent levels of folders contain in their name the parent folder name (e.g.: parent_name+suffix)
