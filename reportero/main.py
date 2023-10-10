@@ -1,4 +1,3 @@
-# TODO: Generate report with beamtime statistics and potential issues to check manually
 # TODO: docs
 # TODO: tests
 
@@ -11,7 +10,7 @@ import logging
 import re
 from dataclasses import dataclass, field, is_dataclass, asdict
 from pathlib import Path
-from typing import Union, Tuple, Any
+from typing import Union, Any
 
 
 class Extension(enum.Enum):
@@ -91,6 +90,7 @@ class Tomcat:
     """
     This class collect all the methods necessary to deal with the TOMCAT ecosystem.
     """
+
     @staticmethod
     def manage_pcoedge_h5_files(files: list[Path]) -> list[Path]:
         """
@@ -107,7 +107,8 @@ class Tomcat:
             data_file = [f for f in files if '001' in f.name]
             if len(data_file) != 1:
                 # This can happen when a data file from other scan is in the wrong folder
-                logging.warning("There are two data files! Probably a wrong scan was saved in this folder... ")
+                logging.warning(
+                    f"There are two data files! Probably a wrong scan was saved in this folder... Check the files: {files}")
                 return files
             return data_file
         return files
@@ -147,44 +148,34 @@ class Tomcat:
         else:
             # Return None if no match is found
             return None, None
+
     @staticmethod
     def ignored_folders():
         return ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
 
     @staticmethod
-    def get_scan_info(json_file: Path)-> ScanInfo:
+    def get_scan_info(json_file: Path) -> ScanInfo:
         with open(json_file, "r") as j:
             log = json.load(j)
 
-        roi = (
-            log["scientificMetadata"]["detectorParameters"]["X-ROI End"] -
-            log["scientificMetadata"]["detectorParameters"][
-                "X-ROI Start"] + 1,
-            log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] -
-            log["scientificMetadata"]["detectorParameters"][
-                "Y-ROI Start"] + 1)
+        roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] -
+               log["scientificMetadata"]["detectorParameters"]["X-ROI Start"] + 1,
+               log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] -
+               log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"] + 1)
 
         return ScanInfo(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
-                                                       microscope=log["scientificMetadata"]["detectorParameters"][
-                                                           "Microscope"],
-                                                       objective=log["scientificMetadata"]["detectorParameters"][
-                                                           "Objective"],
-                                                       scintillator=log["scientificMetadata"]["detectorParameters"][
-                                                           "Scintillator"], exposure_time=
-                                                       log["scientificMetadata"]["detectorParameters"]["Exposure time"][
-                                                           'v'], effective_pixel_size=
-                                                       log["scientificMetadata"]["detectorParameters"][
-                                                           "Actual pixel size"][
-                                                           'v'],
-                                                       number_of_projections=
-                                                       log["scientificMetadata"]["scanParameters"][
-                                                           "Number of projections"],
-                                                       number_of_darks=log["scientificMetadata"]["scanParameters"][
-                                                           "Number of darks"],
-                                                       number_of_whites=log["scientificMetadata"]["scanParameters"][
-                                                           "Number of flats"], region_of_interest=roi,
+                        microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
+                        objective=log["scientificMetadata"]["detectorParameters"]["Objective"],
+                        scintillator=log["scientificMetadata"]["detectorParameters"]["Scintillator"],
+                        exposure_time=log["scientificMetadata"]["detectorParameters"]["Exposure time"]['v'],
+                        effective_pixel_size=log["scientificMetadata"]["detectorParameters"]["Actual pixel size"]['v'],
+                        number_of_projections=log["scientificMetadata"]["scanParameters"]["Number of projections"],
+                        number_of_darks=log["scientificMetadata"]["scanParameters"]["Number of darks"],
+                        number_of_whites=log["scientificMetadata"]["scanParameters"]["Number of flats"],
+                        region_of_interest=roi,
 
-                                                       )
+                        )
+
     @staticmethod
     def write_csv(dataset: Dataset, csv_file_path: Path):
         """
@@ -208,10 +199,8 @@ class Tomcat:
                 size = sizeof_fmt(getattr(data_instance, 'size'))
                 info: ScanInfo = getattr(data_instance, 'info')
                 number_of_scans = getattr(data_instance, 'number_of_subscans', 1)
-                csv_writer.writerow(
-                    [name, created_at, size, info.camera, info.microscope, info.exposure_time,
-                     info.effective_pixel_size,
-                     info.number_of_projections, number_of_scans])
+                csv_writer.writerow([name, created_at, size, info.camera, info.microscope, info.exposure_time,
+                                     info.effective_pixel_size, info.number_of_projections, number_of_scans])
 
     @staticmethod
     def filter_config_json(files: list[Path]) -> list[Path]:
@@ -220,12 +209,16 @@ class Tomcat:
 
 class Report:
 
-    def __init__(self, path: Path,  extension: Extension, output: Path, complete:bool = False,  tomcat: bool = True):
+    def __init__(self, path: Path, extension: Extension, output: Path, complete: bool = False, tomcat: bool = True, size_threshold: int = 1024 ** 3):
         self.path = path
-        self.extension =extension
+        self.extension = extension
         self.output = output
         self.complete = complete
         self.tomcat = tomcat
+
+        self.size_threshold = size_threshold
+        self.dataset = None
+        self.warnings = []
 
         assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
         logging.basicConfig(encoding='utf-8', level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
@@ -234,16 +227,17 @@ class Report:
 
     def generate_report(self):
         logging.info("Generating report...")
-        dataset = Dataset(path=self.path, scans=self._list_scans(self.path))
+        self.dataset = Dataset(path=self.path, scans=self._list_scans(self.path))
+        self._post_validate()
         logging.info("Dataset information:")
-        logging.info(dataset)
+        logging.info(self.dataset)
         if self.output.suffix == 'json':
             with open(self.output, 'w') as f:
-                json.dump(dataset, fp=f, default=EnhancedJSONEncoder(complete=self.complete).default, indent=4)
+                json.dump(self.dataset, fp=f, default=EnhancedJSONEncoder(complete=self.complete).default, indent=4)
         elif self.output.suffix == 'csv':
             assert Tomcat, "Csv report generation is tailored only for Tomcat!"
-            Tomcat.write_csv(dataset, self.output)
-        logging.info("Report generated successfully!")
+            Tomcat.write_csv(self.dataset, self.output)
+        logging.info(f"Report generated successfully at {self.output}!")
 
     def _list_scans(self, path: Path, _reference_file: Path = None) -> list:
         """
@@ -252,8 +246,7 @@ class Report:
         :param _reference_file:
         :return:
         """
-        dataset_paths = [elem for elem in path.iterdir() if
-                         elem.is_dir() and not self._is_path_ignored(elem)]
+        dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not self._is_path_ignored(elem)]
         scans = []
         for dataset in sorted(dataset_paths):
             target_file = self._find_file_by_extension(dataset, self.extension)
@@ -278,8 +271,8 @@ class Report:
         scans = sorted(scans, key=lambda scan: scan.created_at)
         return scans
 
-    def _get_scan_statistics(self,target_file: Path) -> Union[None, tuple[Any, Any, int, ScanInfo], tuple[
-        float, float, int, None]]:
+    def _get_scan_statistics(self, target_file: Path) -> Union[
+        None, tuple[Any, Any, int, ScanInfo], tuple[float, float, int, None]]:
         """
 
         :param target_file:
@@ -304,7 +297,6 @@ class Report:
         else:
             return created_at, finished_at, size, None
 
-
     def _is_path_ignored(self, path: Path) -> bool:
         return any(ignored in path.name for ignored in Tomcat.ignored_folders()) if self.tomcat else False
 
@@ -315,8 +307,7 @@ class Report:
         :return:
         """
         # Check whether elements are directories (subscans).
-        return any(
-            elem.is_dir() and not self._is_path_ignored(elem) for elem in (dataset.iterdir()))
+        return any(elem.is_dir() and not self._is_path_ignored(elem) for elem in (dataset.iterdir()))
 
     def _find_file_by_extension(self, path: Path, extension: Extension) -> Union[Path, None]:
         """
@@ -334,6 +325,7 @@ class Report:
         if len(files) > 1:
             logging.warning(
                 f"More that one file with the extension {extension.value} was found in {path}, using first occurrence only.")
+
         if len(files) == 0:
             logging.warning(f"No file with extension {extension.value} was found in path {path}!")
             return None
@@ -344,24 +336,23 @@ class Report:
         log_file = target_file.with_suffix(suffix='.log')
 
         if not log_file.exists():
+            original_log_file = log_file
             log_file = self._find_file_by_extension(target_file.parent, Extension.log)
-            logging.warning(f"Expected logfile was not found! Using logfile at {log_file} instead.")
+            logging.warning(f"Expected logfile {original_log_file} was not found! Using logfile at {log_file} instead.")
         if not json_file.exists():
-
+            original_json_file = json_file
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
-            logging.warning(f"Expected logfile was not found! Using logfile at {json_file} instead.")
+            logging.warning(
+                f"Expected logfile {original_json_file} was not found! Using logfile at {json_file} instead.")
 
         # Log files may not exist when a scan was cancelled
         return log_file, json_file
 
-    def validate_result(self):
-        # TODO: If size if less than threshold, it's likely a failed scan
-        # TODO: Check dirs name, case there is an acquisition inside the previous acquisition: dataset.name in elem.name
-        # TODO: Check failed scans (often named with suffixes like our manual stitched scan...)
-        # TODO: and the dataset name is contained in subscan name
-        #     # (by convention, the subscans are named after the dataset name)
-        pass
-
+    def _post_validate(self):
+        for scan in self.dataset.scans:
+            if scan.size < self.size_threshold:
+                logging.warning(
+                    f"The scan {scan.path} has a size under {sizeof_fmt(self.size_threshold)} (likely a failed scan)")
 
 
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
@@ -401,9 +392,6 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Reportero', description='\U0001F408TOMCAT Beamtime reporting tool',
                                      epilog='Created with \u2764\ufe0f  by Dani')
@@ -414,7 +402,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--complete',
                         help='Complete dataset representation including details of every subscan. Used only for json outputs. Warning: This will create very long outputs for stitched scans with hundreds of subscans.',
                         action='store_true', default=False)
+    parser.add_argument('-t', '--threshold', help='Size threshold [B] to warn about smaller scans, likely failed scans. Default 1GB.', default=1024**3)
     args = parser.parse_args()
 
-    Report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output)).generate_report()
-
+    Report(path=Path(args.path).resolve(), extension=Extension[args.extension],
+           output=Path(args.output), complete=args.complete, size_threshold=args.threshold).generate_report()
