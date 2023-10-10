@@ -247,10 +247,10 @@ class Report:
         self._post_validate()
         logging.info("Dataset information:")
         logging.info(self.dataset)
-        if self.output.suffix == 'json':
+        if self.output.suffix == '.json':
             with open(self.output, 'w') as f:
                 json.dump(self.dataset, fp=f, default=EnhancedJSONEncoder(complete=self.complete).default, indent=4)
-        elif self.output.suffix == 'csv':
+        elif self.output.suffix == '.csv':
             assert Tomcat, "Csv report generation is tailored only for Tomcat!"
             Tomcat.write_csv(self.dataset, self.output)
         logging.info(f"Report generated successfully at {self.output}!")
@@ -364,12 +364,12 @@ class Report:
         if not log_file.exists():
             original_log_file = log_file
             log_file = self._find_file_by_extension(target_file.parent, Extension.log)
-            logging.warning(f"Expected logfile {original_log_file} was not found! Using logfile at {log_file} instead.")
+            logging.warning(f"Expected logfile {original_log_file.name} was not found! Using logfile at {log_file} instead.")
         if not json_file.exists():
             original_json_file = json_file
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
             logging.warning(
-                f"Expected logfile {original_json_file} was not found! Using logfile at {json_file} instead.")
+                f"Expected logfile {original_json_file.name} was not found! Using logfile at {json_file} instead.")
 
         # Log files may not exist when a scan was cancelled
         return log_file, json_file
