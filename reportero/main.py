@@ -365,12 +365,12 @@ class Report:
             original_log_file = log_file
             log_file = self._find_file_by_extension(target_file.parent, Extension.log)
             logging.warning(
-                f"Expected logfile {original_log_file.name} was not found! Using logfile at {log_file.name} instead.")
+                f"Expected logfile {original_log_file.name} was not found! Using logfile at {log_file} instead.") #Potentialy None
         if not json_file.exists():
             original_json_file = json_file
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
             logging.warning(
-                f"Expected logfile {original_json_file.name} was not found! Using logfile at {json_file.name} instead.")
+                f"Expected logfile {original_json_file.name} was not found! Using logfile at {json_file} instead.") #Potentialy None
 
         # Log files may not exist when a scan was cancelled
         return log_file, json_file
