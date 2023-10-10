@@ -167,10 +167,11 @@ class Tomcat:
         with open(json_file, "r") as j:
             log = json.load(j)
 
-        roi = (log["scientificMetadata"]["detectorParameters"]["X-ROI End"] -
-               log["scientificMetadata"]["detectorParameters"]["X-ROI Start"] + 1,
-               log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] -
-               log["scientificMetadata"]["detectorParameters"]["Y-ROI Start"] + 1)
+        roi = (
+        log["scientificMetadata"]["detectorParameters"]["X-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+            "X-ROI Start"] + 1,
+        log["scientificMetadata"]["detectorParameters"]["Y-ROI End"] - log["scientificMetadata"]["detectorParameters"][
+            "Y-ROI Start"] + 1)
 
         return ScanInfo(camera=log["scientificMetadata"]["detectorParameters"]["Camera"],
                         microscope=log["scientificMetadata"]["detectorParameters"]["Microscope"],
@@ -218,7 +219,8 @@ class Tomcat:
 
 class Report:
 
-    def __init__(self, path: Path, extension: Extension, output: Path, complete: bool = False, tomcat: bool = True, size_threshold: int = 1024 ** 3):
+    def __init__(self, path: Path, extension: Extension, output: Path, complete: bool = False, tomcat: bool = True,
+                 size_threshold: int = 1024 ** 3):
         self.path = path
         self.extension = extension
         self.output = output
@@ -323,12 +325,13 @@ class Report:
 
     def _is_stitched_scan(self, scan: Path) -> bool:
         """
-        Check whether the `scan` is stitched (whether it has subscans or not). Checks if subfolders exist.
+        Check whether the `scan` is stitched (whether it has subscans or not). Checks if subfolders exist, if they do that they are not ignored and that the subfolder name contains the parent scan name.
         :param scan: Path to target scan.
         :return: True if there are subscans in scan.
         """
         # Check whether elements are directories (subscans).
-        return any(elem.is_dir() and not self._is_path_ignored(elem) for elem in (scan.iterdir()))
+        return any(
+            elem.is_dir() and not self._is_path_ignored(elem) and scan.name in elem.name for elem in (scan.iterdir()))
 
     def _find_file_by_extension(self, path: Path, extension: Extension) -> Union[Path, None]:
         """
@@ -364,7 +367,8 @@ class Report:
         if not log_file.exists():
             original_log_file = log_file
             log_file = self._find_file_by_extension(target_file.parent, Extension.log)
-            logging.warning(f"Expected logfile {original_log_file.name} was not found! Using logfile at {log_file.name} instead.")
+            logging.warning(
+                f"Expected logfile {original_log_file.name} was not found! Using logfile at {log_file.name} instead.")
         if not json_file.exists():
             original_json_file = json_file
             json_file = self._find_file_by_extension(target_file.parent, Extension.json)
@@ -434,11 +438,13 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--complete',
                         help='Complete dataset representation including details of every subscan. Used only for json outputs. Warning: This will create very long outputs for stitched scans with hundreds of subscans.',
                         action='store_true', default=False)
-    parser.add_argument('-t', '--threshold', help='Size threshold [B] to warn about smaller scans, likely failed scans. Default 1GB.', default=1024**3)
+    parser.add_argument('-t', '--threshold',
+                        help='Size threshold [B] to warn about smaller scans, likely failed scans. Default 1GB.',
+                        default=1024 ** 3)
     parser.add_argument('--tomcat',
                         help='Set the tomcat flag to FALSE so computations only suitable for the software ecosystem at TOMCAT are not done. Only json outputs are possible.',
                         action='store_false', default=True)
     args = parser.parse_args()
 
-    Report(path=Path(args.path).resolve(), extension=Extension[args.extension],
-           output=Path(args.output), complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat).generate_report()
+    Report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output),
+           complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat).generate_report()

@@ -13,4 +13,8 @@ Generate reports for your beamtimes from the terminal.
 
 ## Conventions
 - First level folders are independent acquisitions
+- Subsequent levels of folders contain in their name the parent folder name (e.g.: parent_name+suffix)
 - Creating a report with `csv` format expects a specific set of columns
+
+## Acknowledgments
+- Hongjian Wang for beta testing the tool
