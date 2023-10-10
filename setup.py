@@ -11,7 +11,7 @@ URL = 'https://github.com/dveni/reportero'
 EMAIL = 'daniel.vera-nieto@psi.ch'
 AUTHOR = 'Daniel Vera Nieto'
 REQUIRES_PYTHON = '>=3.9.0'
-VERSION = '0.1.0'
+VERSION = None
 
 # What packages are required for this module to be executed?
 REQUIRED = [
