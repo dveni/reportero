@@ -117,7 +117,7 @@ class Tomcat:
     @staticmethod
     def get_timestamps(log_file: Path) -> Union[tuple[datetime.datetime, datetime], tuple[None, None]]:
         """
-
+        Get timestamps from the standard log file.
         :param log_file:
         :return:
         """
@@ -151,10 +151,19 @@ class Tomcat:
 
     @staticmethod
     def ignored_folders():
+        """
+        List of directory names to be ignored, usually created while running other routines such as reconstruction.
+        :return:
+        """
         return ["log", "sin", "viewrec", "rec_", "fltp", "cpr"]
 
     @staticmethod
     def get_scan_info(json_file: Path) -> ScanInfo:
+        """
+        Get scan information from TOMCAT standard log file.
+        :param json_file:
+        :return:
+        """
         with open(json_file, "r") as j:
             log = json.load(j)
 
@@ -179,7 +188,7 @@ class Tomcat:
     @staticmethod
     def write_csv(dataset: Dataset, csv_file_path: Path):
         """
-
+        Write the relevant information of a `dataset` to a csv file.
         :param dataset:
         :param csv_file_path:
         :return:
@@ -221,11 +230,18 @@ class Report:
         self.warnings = []
 
         assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
+        if not self.tomcat:
+            assert output.suffix == '.json', "If you are not in the TOMCAT ecosystem you can only use the json output."
+
         logging.basicConfig(encoding='utf-8', level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
                             handlers=[logging.FileHandler(self.output.with_suffix('.log'), mode='w'),
                                       logging.StreamHandler()])
 
     def generate_report(self):
+        """
+        Generate report. Outputs te output file and a log file.
+        :return:
+        """
         logging.info("Generating report...")
         self.dataset = Dataset(path=self.path, scans=self._list_scans(self.path))
         self._post_validate()
@@ -241,10 +257,10 @@ class Report:
 
     def _list_scans(self, path: Path, _reference_file: Path = None) -> list:
         """
-
+        Create a list of the scans in `path`.
         :param path:
         :param _reference_file:
-        :return:
+        :return: List of `Scan`, with their relevant information.
         """
         dataset_paths = [elem for elem in path.iterdir() if elem.is_dir() and not self._is_path_ignored(elem)]
         scans = []
@@ -274,7 +290,7 @@ class Report:
     def _get_scan_statistics(self, target_file: Path) -> Union[
         None, tuple[Any, Any, int, ScanInfo], tuple[float, float, int, None]]:
         """
-
+        Return timestamps, size and scan information of a scan (only in TOMCAT ecosystem)
         :param target_file:
         :return:
         """
@@ -298,23 +314,28 @@ class Report:
             return created_at, finished_at, size, None
 
     def _is_path_ignored(self, path: Path) -> bool:
+        """
+        Check if `path` is contained in the list of ignored paths in case we are in the TOMCAT ecosystem.
+        :param path:
+        :return: True if `path` is ignored
+        """
         return any(ignored in path.name for ignored in Tomcat.ignored_folders()) if self.tomcat else False
 
-    def _is_stitched_scan(self, dataset: Path) -> bool:
+    def _is_stitched_scan(self, scan: Path) -> bool:
         """
-
-        :param dataset:
-        :return:
+        Check whether the `scan` is stitched (whether it has subscans or not). Checks if subfolders exist.
+        :param scan: Path to target scan.
+        :return: True if there are subscans in scan.
         """
         # Check whether elements are directories (subscans).
-        return any(elem.is_dir() and not self._is_path_ignored(elem) for elem in (dataset.iterdir()))
+        return any(elem.is_dir() and not self._is_path_ignored(elem) for elem in (scan.iterdir()))
 
     def _find_file_by_extension(self, path: Path, extension: Extension) -> Union[Path, None]:
         """
-
-        :param path:
-        :param extension:
-        :return:
+        Find file with `extension` in `path`.
+        :param path: Path where to look for the extension.
+        :param extension: Extension to look for.
+        :return: File with `extension` in `path`.
         """
 
         files = [elem for elem in path.iterdir() if extension.value in elem.suffix]
@@ -332,6 +353,11 @@ class Report:
         return files[0]
 
     def _find_log_files(self, target_file: Path) -> Union[tuple[Path, Path], None]:
+        """
+        Given a `target_file` (usually containing the data) find the `.json` and `.log` files associated with it that provide additional information on the data.
+        :param target_file: Pat to target file
+        :return: Paths to json and log files, if they exist.
+        """
         json_file = target_file.with_suffix(suffix='.json')
         log_file = target_file.with_suffix(suffix='.log')
 
@@ -349,6 +375,9 @@ class Report:
         return log_file, json_file
 
     def _post_validate(self):
+        """
+        Log warnings if different conditions are met.
+        """
         for scan in self.dataset.scans:
             if scan.size < self.size_threshold:
                 logging.warning(
@@ -357,10 +386,10 @@ class Report:
 
 def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
     """
-
-    :param num:
-    :param suffix:
-    :return:
+    Format a number in bytes into the largest possible multiple
+    :param num: Number of bytes
+    :param suffix: Suffix to use. Default `B`.
+    :return: Tuple (value, unit suffix)
     """
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
@@ -370,6 +399,9 @@ def sizeof_fmt(num: int, suffix: str = "B") -> tuple[float, str]:
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
+    """
+    Class used to encode non-standard json objects.
+    """
 
     def __init__(self, complete: bool = False, **kwargs):
         super(EnhancedJSONEncoder, self).__init__(**kwargs)
@@ -403,7 +435,10 @@ if __name__ == "__main__":
                         help='Complete dataset representation including details of every subscan. Used only for json outputs. Warning: This will create very long outputs for stitched scans with hundreds of subscans.',
                         action='store_true', default=False)
     parser.add_argument('-t', '--threshold', help='Size threshold [B] to warn about smaller scans, likely failed scans. Default 1GB.', default=1024**3)
+    parser.add_argument('--tomcat',
+                        help='Set the tomcat flag to FALSE so computations only suitable for the software ecosystem at TOMCAT are not done. Only json outputs are possible.',
+                        action='store_false', default=True)
     args = parser.parse_args()
 
     Report(path=Path(args.path).resolve(), extension=Extension[args.extension],
-           output=Path(args.output), complete=args.complete, size_threshold=args.threshold).generate_report()
+           output=Path(args.output), complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat).generate_report()
