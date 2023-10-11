@@ -19,7 +19,11 @@ Run the tool on one of your beamtime folders:
 ```
 reportero -p <PATH TO BEAMTIME FOLDER> -o test.csv
 ```
-> Note: You may need to use the `ignore_folders` argument to omit directories when checking for stitched scans. Inside scans, there might be folders that do not correspond to subscans. This will make the stiched scan scheck to consider that it is a subscan, and it will be skipped afterwards because no subscans were found. A warning is raised in this case. 
+> Note: You may need to use the `ignore_folders` argument to omit directories when checking for stitched scans. Inside scans, there might be folders that do not correspond to subscans. This will make the stiched scan scheck to consider that it is a subscan, and it will be skipped afterwards because no subscans were found. A warning is raised in this case. For example:
+```bash
+reportero -p <PATH> -o test.csv -ig dataset correct images output v2e frame
+```
+>will ignore folders containing the strings `['dataset', 'correct', 'images', 'output', 'v2e', 'frame']` when checking whether a given directory is a stitched scan.
 
 This will create two files:
 - test.csv: Contains a list with all the scans done during the beamtime sorted by creation time, along with relevant information. The output file can be named differently. 
