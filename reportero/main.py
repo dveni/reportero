@@ -223,11 +223,12 @@ class Report:
         self.output = output
         self.complete = complete
         self.tomcat = tomcat
-        self.ignored_folders = ignored_folders
+        self.ignored_folders = ignored_folders if ignored_folders else []
+        if tomcat:
+            self.ignored_folders.extend(Tomcat.ignored_folders())
 
         self.size_threshold = size_threshold
         self.dataset = None
-        self.warnings = []
 
         assert output.suffix in ['.json', '.csv'], "Please, provide an output file path with json or csv format."
         if not self.tomcat:
@@ -236,6 +237,7 @@ class Report:
         logging.basicConfig(encoding='utf-8', level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
                             handlers=[logging.FileHandler(self.output.with_suffix('.log'), mode='w'),
                                       logging.StreamHandler()])
+        logging.info(f" Initial report config: {self.__dict__}")
 
     def generate_report(self):
         """
@@ -319,8 +321,7 @@ class Report:
         :param path:
         :return: True if `path` is ignored
         """
-        ignore = Tomcat.ignored_folders() if self.ignored_folders is None else self.ignored_folders
-        return any(ignored in path.name for ignored in ignore) if self.tomcat else False
+        return any(ignored in path.name for ignored in self.ignored_folders) if self.ignored_folders else False
 
     def _is_stitched_scan(self, scan: Path) -> bool:
         """
@@ -446,10 +447,11 @@ def main():
     parser.add_argument('--tomcat',
                         help='Set the tomcat flag to FALSE so computations only suitable for the software ecosystem at TOMCAT are not done. Only json outputs are possible.',
                         action='store_false', default=True)
+    parser.add_argument('-ig', '--ignored_folders', nargs='+', help='List of strings that may be contained in directories you want to ignore when checking for stiched scans', default=None)
     args = parser.parse_args()
 
     Report(path=Path(args.path).resolve(), extension=Extension[args.extension], output=Path(args.output),
-           complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat).generate_report()
+           complete=args.complete, size_threshold=args.threshold, tomcat=args.tomcat, ignored_folders=args.ignored_folders).generate_report()
 
 
 if __name__ == "__main__":
