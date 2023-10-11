@@ -271,6 +271,7 @@ class Report:
             if self._is_stitched_scan(dataset):
                 sub_scans = self._list_scans(path=dataset, _reference_file=target_file)
                 if not sub_scans:
+                    logging.warning(f"Skipping stitched scan at {dataset} because no subscans were found. This may be due to a failed scan or because there are folders not corresponding to subscans. In the later case, please use the `ignore_folders argument` to omit these folders.")
                     continue
                 scan = StitchedScan(path=dataset, reference_file=target_file, data=sub_scans)
                 scans.append(scan)
