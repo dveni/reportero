@@ -19,6 +19,8 @@ Run the tool on one of your beamtime folders:
 ```
 reportero -p <PATH TO BEAMTIME FOLDER> -o test.csv
 ```
+> Note: You may need to use the `ignore_folders` argument to omit directories when checking for stitched scans   
+
 This will create two files:
 - test.csv: Contains a list with all the scans done during the beamtime sorted by creation time, along with relevant information. The output file can be named differently. 
 - test.log: Log file showing warnings that could be potential issues (e.g.: Missing flat images files, duplicated files, etc)
