@@ -6,7 +6,6 @@ Generate reports for your beamtimes from the terminal.
 - List acquired datasets and show relevant information
 - Compute relevant statistics
 - Throw warnings if the file structure is not expected
-- Get the report in your terminal, json format
 
 
 ## Usage
