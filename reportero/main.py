@@ -203,10 +203,11 @@ class Tomcat:
             for data_instance in dataset.scans:
                 name = Path(getattr(data_instance, 'path')).name
                 created_at = getattr(data_instance, 'created_at')
+                finished_at = getattr(data_instance, 'finished_at')
                 size = sizeof_fmt(getattr(data_instance, 'size'))
                 info: ScanInfo = getattr(data_instance, 'info')
                 number_of_scans = getattr(data_instance, 'number_of_subscans', 1)
-                csv_writer.writerow([name, created_at, size, info.camera, info.microscope, info.exposure_time,
+                csv_writer.writerow([name, created_at, finished_at, size, info.camera, info.microscope, info.exposure_time,
                                      info.effective_pixel_size, info.number_of_projections, number_of_scans])
 
     @staticmethod
