@@ -194,7 +194,7 @@ class Tomcat:
         # Write data to the CSV file
         with open(csv_file_path, 'w', newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
-            columns = ['path', 'created_at', 'size', 'camera', 'microscope', 'exposure_time [ms]', 'effective_pixel_size [um]',
+            columns = ['path', 'created_at', 'finished_at', 'size', 'camera', 'microscope', 'exposure_time [ms]', 'effective_pixel_size [um]',
                        'projections', 'number_of_subscans']
             # Write header
             csv_writer.writerow(columns)
